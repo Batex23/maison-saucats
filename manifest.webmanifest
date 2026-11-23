@@ -3,12 +3,12 @@
   "short_name": "Saucats",
   "description": "Les tâches de la maison : bricolage, entretien, achats et planning, à deux.",
   "lang": "fr",
-  "start_url": "./#carte",
+  "start_url": "./#maison",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#e6ecd3",
-  "theme_color": "#3f7f4a",
+  "background_color": "#eef0ec",
+  "theme_color": "#2d6b58",
   "icons": [
     { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
     { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }

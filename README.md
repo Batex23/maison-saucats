@@ -1,18 +1,20 @@
 # Maison de Saucats
 
-Les quêtes de la maison, façon RPG pixel : bricolage, réparations, entretien, achats et planning, à deux (avec Balou comme guide).
+Les tâches de la maison, pièce par pièce : bricolage, réparations, entretien, achats et planning, pour Baptiste et Elodie (avec Baloo comme guide).
 
 L'appli s'installe sur le téléphone comme une application classique. Elle fonctionne hors ligne et synchronise vos quêtes entre vos deux téléphones par un dépôt GitHub privé.
 
 ## Ce qu'il y a dedans
 
-- **Carte** : le terrain vu de dessus. Touche une zone (maison, piscine, abri, potager, poulailler, puits) pour voir ses quêtes. Balou propose la mission du jour selon ton temps, l'endroit et ta forme.
-- **Nouvelle quête avec Balou** : il pose les questions une par une : où, quel genre, combien de temps, quel matériel, est-ce que tu l'as, combien ça coûte, ce qu'il faut finir avant, pour quand, qui s'en occupe.
-- **Demander à Claude** : envoie l'état de la maison à Claude (avec votre abonnement, sans clé API). Claude pose ses questions, puis donne un bloc de quêtes à recoller dans l'appli.
-- **Quêtes** : le journal, avec les états Faisable, À acheter, Bloquée, En attente.
-- **Sac** : la liste d'achats générée toute seule, triée par ce qui débloque le plus.
+- **Maison** : « Aujourd'hui » propose quoi faire selon ton temps, l'endroit et ta forme. En dessous, la maison en isométrie (RDC, étage, extérieur) d'après les plans : touche une pièce pour voir ses tâches, triées en « à faire maintenant », « il manque du matériel » et « plus tard ».
+- **Nouvelle tâche avec Baloo** : il pose les questions une par une : où, quel genre, combien de temps, quel matériel, est-ce que tu l'as, combien ça coûte, ce qu'il faut finir avant, pour quand, qui s'en occupe.
+- **Demander à Claude** : envoie l'état de la maison à Claude (avec votre abonnement, sans clé API). Claude pose ses questions, puis donne un bloc de tâches à recoller dans l'appli.
+- **Tâches** : toutes les tâches, rangées par pièce.
+- **Achats** : la liste générée toute seule, triée par ce qui débloque le plus.
 - **Agenda** : le planning des 12 prochaines semaines selon vos heures de bricolage.
-- **Équipe** : niveaux et XP de chacun, prénoms, consignes pour Claude, synchro.
+- **Nous** : qui utilise ce téléphone, prénoms, consignes pour Claude, synchro, sauvegarde.
+
+Les pièces et leurs positions sont dans `js/house.js`.
 
 ## Installer sur le téléphone
 
