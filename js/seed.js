@@ -178,4 +178,6 @@ SEED_TASKS.push(
 
 /* Corrections dictées dans la conversation : chacune s'applique une seule fois sur chaque téléphone.
    Exemple : { key: "2026-11-24-liege-fait", id: "t-liege", set: { status: "done" } } */
-const SEED_PATCHES = [];
+const SEED_PATCHES = [
+  { key: "2026-11-23-sdb-faite", id: "e-sdb", set: { lastDone: "2026-11-23" }, log: { who: "lui", date: "2026-11-23" } }
+];

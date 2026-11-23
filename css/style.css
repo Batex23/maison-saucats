@@ -205,7 +205,7 @@ svg.house .p-facades .lbl,svg.house .room.ground .lbl,svg.house[data-level="ext"
 /* Onglets */
 nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:6;background:var(--panel);border-top:1px solid var(--line);
   padding:6px max(6px,env(safe-area-inset-right,0px)) calc(6px + env(safe-area-inset-bottom,0px)) max(6px,env(safe-area-inset-left,0px));display:flex;justify-content:space-around}
-nav.tabs button{border:0;background:none;display:flex;flex-direction:column;align-items:center;gap:3px;font-size:.72rem;font-weight:600;color:var(--muted);padding:6px 8px;border-radius:12px;min-width:60px}
+nav.tabs button{border:0;background:none;display:flex;flex-direction:column;align-items:center;gap:3px;font-size:.7rem;font-weight:600;color:var(--muted);padding:6px 4px;border-radius:12px;min-width:52px;flex:1;max-width:84px}
 nav.tabs svg{width:22px;height:22px}
 nav.tabs button[aria-current="page"]{color:var(--accent);background:var(--accent-soft)}
 
@@ -221,3 +221,41 @@ svg.house .room-lbl{cursor:pointer}
 .talk .portrait{background:rgba(255,255,255,.9);border-radius:10px;padding:4px;line-height:0}
 .talk .tt{display:flex;flex-direction:column;gap:2px;min-width:0} .talk .tt b{font-size:1.05rem} .talk .tt span{font-size:.85rem;opacity:.9}
 .talk .go{font-size:1.6rem;line-height:1}
+
+/* Bilan */
+.score{display:flex;gap:14px;align-items:center}
+.score .big{font-family:var(--font-head);font-size:3rem;font-weight:800;line-height:1;color:var(--accent)}
+.score b{display:block;font-size:1.05rem} .score span{font-size:.86rem;color:var(--muted)}
+.goal{display:flex;gap:10px;align-items:center}
+.gbar{flex:1;height:12px;border-radius:999px;background:var(--panel-2);border:1px solid var(--line);overflow:hidden}
+.gbar i{display:block;height:100%;background:var(--accent);border-radius:999px}
+.goal span{font-size:.86rem;font-weight:700;color:var(--muted)}
+.who-n{display:inline-flex;gap:6px;align-items:center;font-size:.9rem}
+.streak{font-size:.82rem;font-weight:700;color:var(--amber);background:var(--amber-soft);border-radius:999px;padding:3px 10px}
+.heat-wrap{display:flex;gap:6px}
+.heat-days{display:grid;grid-template-rows:repeat(7,1fr);font-size:.62rem;color:var(--muted);gap:3px;align-items:center}
+.heat{flex:1;display:grid;grid-template-columns:repeat(12,1fr);grid-template-rows:repeat(7,auto);gap:3px}
+.hc{display:block;aspect-ratio:1;border-radius:3px;background:var(--panel-2);border:1px solid var(--line);max-width:100%}
+.legend .hc{width:11px;height:11px;display:inline-block;margin:0 1px;vertical-align:-1px}
+.hc.l1{background:color-mix(in srgb,var(--green) 30%,var(--panel));border-color:transparent}
+.hc.l2{background:color-mix(in srgb,var(--green) 55%,var(--panel));border-color:transparent}
+.hc.l3{background:color-mix(in srgb,var(--green) 80%,var(--panel));border-color:transparent}
+.hc.l4{background:var(--green);border-color:transparent}
+.hc.lf{background:transparent;border-style:dashed}
+.rec{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line);cursor:pointer}
+.rec:last-child{border-bottom:0}
+.rec .rt{min-width:0;display:flex;flex-direction:column} .rec .rt b{font-weight:600} .rec .rt span{font-size:.8rem;color:var(--muted)}
+.rec .rr{display:flex;flex-direction:column;align-items:flex-end;gap:4px}
+.dots{display:flex;gap:3px} .dots i{width:7px;height:7px;border-radius:50%;background:var(--green)}
+.hist{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;padding:6px 0;font-size:.95rem}
+.hist .linkbtn{color:var(--muted);font-weight:500;font-size:.8rem}
+/* Toast d'accomplissement */
+.toast{display:flex;gap:12px;align-items:center}
+.toast .tm{display:flex;flex-direction:column;gap:2px;min-width:0}
+.toast .tm span{font-size:.84rem;opacity:.85}
+.toast .tact{background:none;border:1px solid currentColor;color:inherit;border-radius:8px;padding:6px 10px;font-weight:600;flex:none}
+.toast.big{background:var(--accent);color:var(--accent-ink);padding:14px 16px;width:min(92vw,520px)}
+@media (prefers-reduced-motion: no-preference){
+  .toast.pop{animation:cheer .5s cubic-bezier(.2,1.4,.4,1)}
+  @keyframes cheer{0%{transform:translate(-50%,24px) scale(.9);opacity:0}100%{transform:translate(-50%,0) scale(1);opacity:1}}
+}

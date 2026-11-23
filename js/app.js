@@ -75,6 +75,7 @@ function migrate(d) {
   (typeof SEED_PATCHES !== "undefined" ? SEED_PATCHES : []).forEach(p => {
     if (d.applied[p.key] || !d.tasks[p.id]) return;
     Object.assign(d.tasks[p.id], p.set, { updatedAt: Date.now() }); d.applied[p.key] = 1;
+    if (p.log) { const lid = "log-" + p.key; d.log = d.log || {}; d.log[lid] = { id: lid, taskId: p.id, title: d.tasks[p.id].title, minutes: +d.tasks[p.id].duration || 0, place: d.tasks[p.id].place, kind: d.tasks[p.id].kind, ...p.log }; }
   });
   if (d.v < 6) {
     SEED_TASKS.forEach(s => { if (!d.tasks[s.id]) d.tasks[s.id] = { deps: [], materials: [], status: "todo", notes: "", assignee: "", ...s, updatedAt: Date.now() }; });
@@ -106,8 +107,8 @@ function patchTask(id, patch) { putTask({ ...S.data.tasks[id], ...patch }); }
 
 function completeTask(id) {
   const t = S.data.tasks[id]; if (!t) return;
-  const who = S.dev.me || "lui", lid = uid();
-  S.data.log[lid] = { id: lid, taskId: id, title: t.title, who, date: todayISO() };
+  const before = { ...t }, who = S.dev.me || "lui", lid = uid();
+  S.data.log[lid] = { id: lid, taskId: id, title: t.title, who, date: todayISO(), minutes: +t.duration || 0, place: placeOf(t), kind: t.kind };
   let extra = "";
   if (t.kind === "entretien") patchTask(id, { lastDone: todayISO() });
   else {
@@ -116,7 +117,32 @@ function completeTask(id) {
     if (unl.length) extra = " Ça débloque : " + unl.map(x => x.title).join(", ") + ".";
   }
   commit();
-  toast(`« ${t.title} » : fait.${extra}`);
+  celebrate(t, extra, () => { S.data.log[lid] = { ...S.data.log[lid], deleted: true }; putTask({ ...before }); commit("Annulé"); });
+}
+const logList = () => Object.values(S.data.log || {}).filter(l => !l.deleted && l.date);
+function weekStats(offset = 0) {
+  const start = mondayOf(new Date()); start.setDate(start.getDate() - 7 * offset);
+  const end = new Date(start); end.setDate(end.getDate() + 6);
+  const s = iso8(start), e = iso8(end), ls = logList().filter(l => l.date >= s && l.date <= e);
+  return { start: s, end: e, n: ls.length, min: ls.reduce((m, l) => m + (+l.minutes || +(S.data.tasks[l.taskId] || {}).duration || 0), 0), list: ls };
+}
+function weekStreak() {
+  let n = 0;
+  for (let w = weekStats(0).n ? 0 : 1; w < 104; w++) { if (weekStats(w).n) n++; else break; }
+  return n;
+}
+function taskHistory(id) {
+  const ds = [...new Set(logList().filter(l => l.taskId === id).map(l => l.date))].sort();
+  const gaps = ds.slice(1).map((d, i) => daysBetween(ds[i], d));
+  return { dates: ds, avg: gaps.length ? Math.round(gaps.reduce((s, g) => s + g, 0) / gaps.length) : null, last30: ds.filter(d => daysBetween(d, todayISO()) < 30).length };
+}
+function celebrate(t, extra, undo) {
+  const w = weekStats(0), goal = +S.data.settings.weeklyGoal || 10, h = taskHistory(t.id);
+  let line = `${w.n}${w.n === 1 ? "re" : "e"} tâche cette semaine`;
+  if (w.n === goal) line = `Objectif de la semaine atteint : ${goal} tâches !`;
+  else if (w.n < goal) line += ` · encore ${goal - w.n} pour l'objectif`;
+  if (t.kind === "entretien" && h.dates.length > 1) line += ` · ${h.last30} fois en 30 j` + (h.avg ? `, tous les ${h.avg} j en moyenne` : "");
+  toast(`Bien joué ! « ${t.title} » est fait.`, { sub: line + (extra ? " ·" + extra : ""), action: "Annuler", onAction: undo, big: true, ms: 5500 });
 }
 
 /* ---------------- analyse : état, score ---------------- */
@@ -415,6 +441,64 @@ function viewAgenda() {
   </section>`;
 }
 
+/* ---------------- vue Bilan ---------------- */
+function viewBilan() {
+  const w = weekStats(0), prev = weekStats(1), goal = +S.data.settings.weeklyGoal || 10, streak = weekStreak();
+  const pct = Math.min(100, Math.round(w.n / goal * 100));
+  const per = k => w.list.filter(l => l.who === k).length;
+  const diff = w.n - prev.n;
+  // calendrier : 12 semaines × 7 jours
+  const counts = {}; logList().forEach(l => counts[l.date] = (counts[l.date] || 0) + 1);
+  const start = mondayOf(new Date()); start.setDate(start.getDate() - 7 * 11);
+  let cells = "";
+  for (let wk = 0; wk < 12; wk++) for (let d = 0; d < 7; d++) {
+    const x = new Date(start); x.setDate(x.getDate() + wk * 7 + d); const k = iso8(x), n = counts[k] || 0;
+    const fut = k > todayISO();
+    cells += `<i class="hc l${fut ? "f" : Math.min(4, n)}" style="grid-column:${wk + 1};grid-row:${d + 1}" title="${fmtDate(k)} : ${n}"></i>`;
+  }
+  // régularité des tâches récurrentes
+  const rec = tasksList().filter(t => t.kind === "entretien").map(t => ({ t, h: taskHistory(t.id) }))
+    .sort((a, b) => (b.t._.state === "due") - (a.t._.state === "due") || (b.h.dates.length - a.h.dates.length));
+  const recRow = ({ t, h }) => {
+    const target = hasDay(t) ? 7 : (+t.everyDays || 7);
+    const ok = h.avg === null ? null : h.avg <= target + Math.max(1, Math.round(target * .25));
+    const dots = h.dates.slice(-8).map(() => `<i></i>`).join("");
+    return `<div class="rec" data-act="edit" data-id="${t.id}" role="button" tabindex="0">
+      <div class="rt"><b>${esc(t.title)}</b><span>${esc(rhythm(t))}${t.lastDone ? " · dernière fois " + (t.lastDone === todayISO() ? "aujourd'hui" : fmtDate(t.lastDone)) : ""}</span></div>
+      <div class="rr">${h.avg !== null ? `<span class="pill ${ok ? "ready" : "buy"}">tous les ${h.avg} j</span>` : h.dates.length ? `<span class="pill ready">1 fois</span>` : `<span class="pill wait">à suivre</span>`}<span class="dots">${dots}</span></div></div>`;
+  };
+  // historique
+  const byDay = {}; logList().sort((a, b) => b.date.localeCompare(a.date)).slice(0, 40).forEach(l => (byDay[l.date] = byDay[l.date] || []).push(l));
+  const dayName = d => d === todayISO() ? "Aujourd'hui" : daysBetween(d, todayISO()) === 1 ? "Hier" : new Date(d + "T12:00").toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
+  return `
+  <section class="card sec">
+    <div class="sec-head"><h2>Cette semaine</h2><span class="hint">${fmtDate(w.start)} – ${fmtDate(w.end)}</span></div>
+    <div class="score"><div class="big num">${w.n}</div><div><b>tâche${w.n > 1 ? "s" : ""} faite${w.n > 1 ? "s" : ""}</b><span>${fmtMin(w.min)} de travail${diff > 0 ? ` · ${diff} de plus que la semaine dernière` : prev.n ? ` · semaine dernière : ${prev.n}` : ""}</span></div></div>
+    <div class="goal"><div class="gbar"><i style="width:${pct}%"></i></div><span class="num">${w.n} / ${goal}</span></div>
+    <div class="row" style="justify-content:space-between">
+      <div class="row" style="gap:14px">${["lui", "elodie"].map(k => `<span class="who-n">${mini(k, 1)} ${esc(playerName(k))} <b class="num">${per(k)}</b></span>`).join("")}</div>
+      <span class="streak">${streak ? `${streak} semaine${streak > 1 ? "s" : ""} d'affilée` : "Première semaine"}</span>
+    </div>
+  </section>
+  <section class="card sec">
+    <div class="sec-head"><h2>12 dernières semaines</h2><span class="hint">un carré = un jour</span></div>
+    <div class="heat-wrap"><div class="heat-days"><span>L</span><span></span><span>M</span><span></span><span>V</span><span></span><span>D</span></div><div class="heat">${cells}</div></div>
+    <div class="legend" style="padding:0"><span>Moins</span><i class="hc l0"></i><i class="hc l1"></i><i class="hc l2"></i><i class="hc l3"></i><i class="hc l4"></i><span>Plus</span></div>
+  </section>
+  <section class="card sec" style="gap:0">
+    <div class="sec-head" style="margin-bottom:4px"><h2>Régularité de l'entretien</h2><span class="hint">rythme réel</span></div>
+    ${rec.map(recRow).join("")}
+  </section>
+  <section class="sec">
+    <h2>Historique</h2>
+    ${Object.keys(byDay).length ? Object.entries(byDay).map(([d, ls]) => `<div class="card sec" style="gap:2px"><h3 style="text-transform:capitalize">${esc(dayName(d))}</h3>
+      ${ls.map(l => `<div class="hist">${mini(l.who === "elodie" ? "elodie" : "lui", 1)}<span>${esc(l.title)}</span><button class="linkbtn" data-act="unlog" data-id="${l.id}" aria-label="Retirer de l'historique">Retirer</button></div>`).join("")}</div>`).join("")
+      : `<div class="empty">Rien encore. Coche une tâche faite pour la voir ici.</div>`}
+  </section>
+  <section class="card sec"><h2>Objectif de la semaine</h2>
+    <div class="row"><div class="field" style="flex:1"><label for="goal">Nombre de tâches</label><input id="goal" type="number" min="1" max="100" value="${goal}"></div></div></section>`;
+}
+
 /* ---------------- vue Nous ---------------- */
 function viewNous() {
   const me = S.dev.me, week = iso8(mondayOf(new Date())), st = S.data.settings, sy = S.dev.sync;
@@ -458,7 +542,7 @@ function viewNous() {
 function render(keepScroll = true) {
   analyze(); renderTop();
   document.querySelectorAll("nav.tabs button").forEach(b => b.setAttribute("aria-current", b.dataset.tab === S.tab ? "page" : "false"));
-  const v = { maison: viewMaison, taches: viewTaches, achats: viewAchats, agenda: viewAgenda, nous: viewNous }[S.tab] || viewMaison;
+  const v = { maison: viewMaison, taches: viewTaches, achats: viewAchats, agenda: viewAgenda, nous: viewNous, bilan: viewBilan }[S.tab] || viewMaison;
   const y = window.scrollY; $("#view").innerHTML = v(); if (keepScroll) window.scrollTo(0, y);
   hydrateSprites($("#view"));
   if (!S.dev.me) setTimeout(firstRun, 50);
@@ -754,7 +838,7 @@ const b64dec = c => new TextDecoder().decode(Uint8Array.from(atob(c.replace(/\s/
 const canon = o => JSON.stringify(o, (k, v) => k === "_" ? undefined : (v && typeof v === "object" && !Array.isArray(v) ? Object.keys(v).sort().reduce((r, x) => (r[x] = v[x], r), {}) : v));
 function mergeData(a, b) {
   if (!b) return a;
-  const out = { v: Math.max(a.v || 1, b.v || 1), tasks: {}, log: { ...(b.log || {}), ...(a.log || {}) }, applied: { ...(b.applied || {}), ...(a.applied || {}) }, settings: null };
+  const out = { v: Math.max(a.v || 1, b.v || 1), tasks: {}, log: Object.fromEntries([...new Set([...Object.keys(a.log || {}), ...Object.keys(b.log || {})])].map(k => { const x = a.log?.[k], y = b.log?.[k]; return [k, x && y ? (x.deleted || y.deleted ? { ...x, deleted: true } : x) : (x || y)]; })), applied: { ...(b.applied || {}), ...(a.applied || {}) }, settings: null };
   new Set([...Object.keys(a.tasks || {}), ...Object.keys(b.tasks || {})]).forEach(id => { const x = a.tasks?.[id], y = b.tasks?.[id]; out.tasks[id] = !x ? y : !y ? x : ((y.updatedAt || 0) > (x.updatedAt || 0) ? y : x); });
   out.settings = ((b.settings?.updatedAt || 0) > (a.settings?.updatedAt || 0)) ? b.settings : a.settings;
   return out;
@@ -830,8 +914,15 @@ setInterval(remindNow, 10 * 60 * 1000);
 document.addEventListener("visibilitychange", () => { if (!document.hidden) remindNow(); });
 
 /* ---------------- événements ---------------- */
-function toast(msg) { const t = $("#toast"); t.textContent = msg; t.hidden = false; clearTimeout(toast._t); toast._t = setTimeout(() => t.hidden = true, 3200); }
-const TABS = ["maison", "taches", "achats", "agenda", "nous"];
+function toast(msg, o = {}) {
+  const t = $("#toast");
+  t.className = "toast" + (o.big ? " big" : "");
+  t.innerHTML = `<div class="tm"><b>${esc(msg)}</b>${o.sub ? `<span>${esc(o.sub)}</span>` : ""}</div>${o.action ? `<button class="tact">${esc(o.action)}</button>` : ""}`;
+  if (o.action) t.querySelector(".tact").onclick = () => { t.hidden = true; o.onAction && o.onAction(); };
+  t.hidden = false; clearTimeout(toast._t); toast._t = setTimeout(() => t.hidden = true, o.ms || 3200);
+  if (o.big && !matchMedia("(prefers-reduced-motion: reduce)").matches) { t.classList.remove("pop"); void t.offsetWidth; t.classList.add("pop"); }
+}
+const TABS = ["maison", "taches", "bilan", "achats", "agenda", "nous"];
 function go(t) { if (!TABS.includes(t)) t = "maison"; S.tab = t; if (location.hash !== "#" + t) history.replaceState(null, "", "#" + t); render(false); window.scrollTo(0, 0); }
 
 document.addEventListener("click", e => {
@@ -850,6 +941,7 @@ document.addEventListener("click", e => {
   if (act === "close") closeSheet();
   else if (act === "edit") openEditor(a.dataset.id);
   else if (act === "done") { closeSheet(); completeTask(a.dataset.id); }
+  else if (act === "unlog") { const l = S.data.log[a.dataset.id]; if (l) { S.data.log[a.dataset.id] = { ...l, deleted: true }; commit("Retiré de l'historique"); } }
   else if (act === "new") { closeSheet(); openEditor(null, a.dataset.place || ""); }
   else if (act === "rooms") { S.room = null; render(); }
   else if (act === "me") { S.dev.me = a.dataset.v; saveDev(); closeSheet(); render(); }
@@ -872,6 +964,7 @@ document.addEventListener("click", e => {
 });
 document.addEventListener("change", e => {
   if (e.target.dataset.act === "bought" && e.target.checked) setBought(e.target.dataset.key, true);
+  if (e.target.id === "goal") { S.data.settings = { ...S.data.settings, weeklyGoal: Math.max(1, Math.min(100, +e.target.value || 10)), updatedAt: Date.now() }; commit("Objectif enregistré"); }
   if (e.target.id === "weekly") { S.data.settings = { ...S.data.settings, weeklyHours: Math.max(1, Math.min(60, +e.target.value || 4)), updatedAt: Date.now() }; commit("Agenda recalculé"); }
   if (e.target.id === "import-file" && e.target.files[0]) e.target.files[0].text().then(txt => { try { const d = JSON.parse(txt); if (!d.tasks) throw 0; S.data = migrate(mergeData(S.data, d)); commit("Sauvegarde importée"); } catch (err) { toast("Ce fichier n'est pas une sauvegarde de l'appli."); } });
 });
