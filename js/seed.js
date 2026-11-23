@@ -1,13 +1,13 @@
 /* Quêtes de départ (estimations à corriger dans l'appli). updatedAt = 0 : les données synchronisées passent toujours devant. */
 const SEED_TASKS = [
   { id: "t-liege", place: "wc_rdc", title: "WC : découper et coller le liège", kind: "reparation", zone: "WC du bas", project: "WC du bas", duration: 90, urgency: 2, importance: 2, outdoor: false, deps: [], materials: [{ name: "Colle pour liège", cost: 15, have: false }], status: "todo" },
-  { id: "t-abri", place: "abri", title: "Terminer la structure de l'abri", kind: "projet", zone: "Abri", project: "Abri de jardin", duration: 240, urgency: 2, importance: 3, outdoor: true, deps: [], materials: [{ name: "Bois de structure", cost: 200, have: false }], status: "doing", notes: "Le bois sert aussi à d'autres projets : regrouper les achats." },
-  { id: "t-abri-toit", place: "abri", title: "Couvrir le toit de l'abri", kind: "projet", zone: "Abri", project: "Abri de jardin", duration: 180, urgency: 2, importance: 3, outdoor: true, deps: ["t-abri"], materials: [{ name: "Couverture de toit", cost: 150, have: false }], status: "todo" },
+  { id: "t-abri", place: "abri", title: "Cabane : refaire la toiture", kind: "projet", zone: "Abri", project: "Cabane", duration: 240, urgency: 2, importance: 3, outdoor: true, deps: [], materials: [], status: "todo", notes: "À faire avant les tuiles de rive." },
+  { id: "t-abri-toit", place: "abri", title: "Cabane : poser les tuiles de rive", kind: "projet", zone: "Abri", project: "Cabane", duration: 180, urgency: 2, importance: 3, outdoor: true, deps: ["t-abri"], materials: [{ name: "Tuiles de rive", cost: 0, have: false }], status: "todo", notes: "Vérifier si les tuiles de rive sont déjà là ; sinon mettre le prix." },
   { id: "t-terrasse", place: "abri", title: "Poser la terrasse en dalles travertin", kind: "projet", zone: "Abri", project: "Coin douche exotique", duration: 360, urgency: 1, importance: 2, outdoor: true, deps: ["t-abri"], materials: [{ name: "Dalles style travertin gris", cost: 300, have: false }, { name: "Sable de pose", cost: 40, have: false }], status: "todo" },
   { id: "t-douche", place: "abri", title: "Installer la douche extérieure", kind: "projet", zone: "Abri", project: "Coin douche exotique", duration: 240, urgency: 1, importance: 2, outdoor: true, deps: ["t-terrasse"], materials: [{ name: "Kit douche extérieure", cost: 120, have: false }, { name: "Raccords et tuyau", cost: 25, have: false }], status: "todo", waitUntil: "2027-04-01" },
   { id: "t-brisevue", place: "jardin", title: "Poser le brise-vue côté voisins", kind: "projet", zone: "Jardin", project: "Coin douche exotique", duration: 120, urgency: 2, importance: 2, outdoor: true, deps: [], materials: [{ name: "Brise-vue / canisse", cost: 80, have: false }], status: "todo" },
   { id: "t-bananier", place: "abri", title: "Planter le bananier", kind: "projet", zone: "Abri", project: "Coin douche exotique", duration: 45, urgency: 1, importance: 1, outdoor: true, deps: [], materials: [{ name: "Bananier", cost: 40, have: false }], status: "todo", waitUntil: "2027-04-15", notes: "Après les gelées." },
-  { id: "t-allee", place: "jardin", title: "Faire l'allée en gravier", kind: "projet", zone: "Jardin", project: "Coin douche exotique", duration: 180, urgency: 1, importance: 1, outdoor: true, deps: [], materials: [{ name: "Géotextile", cost: 30, have: false }, { name: "Gravier", cost: 80, have: false }], status: "todo" },
+  { id: "t-allee", place: "jardin", title: "Finir l'allée : étaler les cailloux (stock au potager)", kind: "projet", zone: "Jardin", project: "Allée", duration: 180, urgency: 2, importance: 2, outdoor: true, deps: ["j-brouette"], materials: [], status: "doing" },
   { id: "t-paillage", place: "jardin", title: "Pailler les massifs en écorces", kind: "projet", zone: "Jardin", project: "Coin douche exotique", duration: 60, urgency: 1, importance: 1, outdoor: true, deps: ["t-brisevue"], materials: [{ name: "Écorces de pin", cost: 30, have: false }], status: "todo" },
   { id: "t-potager-plan", place: "potager", title: "Dessiner le plan des planches du potager", kind: "projet", zone: "Potager", project: "Potager", duration: 60, urgency: 2, importance: 3, outdoor: false, deps: [], materials: [], status: "todo", notes: "11,5 x 13,5 m, entrée au milieu de la façade nord, serre côté ouest." },
   { id: "t-potager-planches", place: "potager", title: "Préparer les planches (carton + broyat)", kind: "projet", zone: "Potager", project: "Potager", duration: 240, urgency: 2, importance: 3, outdoor: true, deps: ["t-potager-plan"], materials: [{ name: "Carton brun", cost: 0, have: false }, { name: "Broyat / BRF", cost: 50, have: false }], status: "todo" },
@@ -103,5 +103,60 @@ SEED_TASKS.push(
   P("p-gc", "terrasse_etage", "Poser le garde-corps tout autour", { project: "Terrasse du haut", duration: 960, urgency: 3, importance: 3, outdoor: true, deps: ["p-gc-etude"], materials: [{ name: "Garde-corps terrasse", cost: 0, have: false }], notes: "Chiffrer après l'étude." }),
   P("p-sauna-plan", "terrasse_etage", "Concevoir le local sauna (rangement en attendant)", { project: "Terrasse du haut", duration: 180, urgency: 1, outdoor: true, notes: "Prévoir dès le départ ce qu'il faut pour un sauna : isolation, électricité, ventilation." }),
   P("p-sauna", "terrasse_etage", "Construire le local", { project: "Terrasse du haut", duration: 1920, urgency: 1, outdoor: true, deps: ["p-sauna-plan", "p-gc"] })
+);
+SEED_TASKS.forEach(t => { if (!t.zone) t.zone = t.place; });
+
+/* Extérieur, dicté par Baptiste le 23/11/2026. Durées et prix : estimations à corriger. */
+const BOIS_CAB = { name: "Bois cabane (frise + surélévation du faîtage)", cost: 80, have: false };
+const X = (id, place, title, o = {}) => P(id, place, title, { outdoor: true, ...o });
+SEED_TASKS.push(
+  // Mare naturelle (à faire en même temps que la piscine)
+  X("m-plan", "mare", "Mare : implanter les 4 zones", { project: "Mare", duration: 120, urgency: 3, importance: 3, notes: "Zone de régénération des plantes + 3 bassins de 2 × 2 m : 40 cm, 60 cm et 1,20 m de profondeur. Trop-plein déjà creusé." }),
+  X("m-creuser", "mare", "Mare : creuser les zones", { project: "Mare", duration: 960, urgency: 3, importance: 3, deps: ["m-plan"] }),
+  X("m-membrane", "mare", "Mare : poser le géotextile et l'EPDM", { project: "Mare", duration: 360, urgency: 3, importance: 3, deps: ["m-creuser"], materials: [{ name: "Géotextile mare", cost: 80, have: false }, { name: "Bâche EPDM mare", cost: 500, have: false }] }),
+  X("m-tropplein", "mare", "Mare : raccorder le trop-plein", { project: "Mare", duration: 120, deps: ["m-membrane"] }),
+  X("m-pompe", "mare", "Mare : bonde de fond, pompe et filtration mécanique", { project: "Mare", duration: 240, deps: ["m-membrane"], materials: [{ name: "Pompe + filtre mécanique mare", cost: 250, have: false }, { name: "Bonde de fond", cost: 40, have: false }] }),
+  X("m-ponton", "mare", "Construire le ponton au-dessus de la mare", { project: "Mare", duration: 960, urgency: 1, deps: ["m-membrane"] }),
+  X("m-eau", "mare", "Remplir la mare et la piscine en même temps", { project: "Piscine et mare", duration: 240, urgency: 2, importance: 3, deps: ["m-membrane", "pi-liner"], notes: "Équilibrer les pressions pendant le remplissage et la pose du liner." }),
+  // Piscine
+  X("pi-demander", "piscine", "Demander au pisciniste quel fond il exige avant sa venue", { project: "Piscine", duration: 15, urgency: 3, importance: 3 }),
+  X("pi-choix", "piscine", "Piscine : choisir entre ponçage et ragréage du fond", { project: "Piscine", duration: 60, urgency: 3, importance: 3, deps: ["pi-demander"], notes: "Critères : le moins cher, le plus simple, faisable en hiver. Le ragréage craint le froid : regarder la température minimale sur la fiche du produit." }),
+  X("pi-fond", "piscine", "Piscine : préparer le fond (avant le pisciniste)", { project: "Piscine", duration: 960, urgency: 3, importance: 3, deps: ["pi-choix"] }),
+  X("pi-liner", "piscine", "Pisciniste : finition et pose du liner", { project: "Piscine", duration: 60, urgency: 2, importance: 3, deps: ["pi-fond"], waitUntil: "2027-03-01", notes: "Fait par un professionnel au printemps 2027." }),
+  X("pi-gaines", "piscine", "Passer les gaines d'éclairage avant la plage", { project: "Piscine", duration: 240, deps: ["pi-liner"], materials: [{ name: "Gaines et câble extérieur", cost: 80, have: false }] }),
+  X("pi-plage", "piscine", "Plage et margelles en pierre autour de la piscine", { project: "Piscine", duration: 2400, urgency: 1, deps: ["pi-gaines"], materials: [{ name: "Dalles et margelles pierre", cost: 0, have: false }], notes: "Chiffrer les dalles." }),
+  X("pi-eclairage", "piscine", "Poser l'éclairage de nuit (piscine et chemin)", { project: "Piscine", duration: 240, urgency: 1, deps: ["pi-plage"], materials: [{ name: "Luminaires extérieurs", cost: 150, have: false }] }),
+  X("pi-medit", "piscine", "Créer la zone méditerranéenne autour du bassin", { project: "Piscine", duration: 960, urgency: 1, deps: ["pi-plage"] }),
+  X("pi-secu", "piscine", "Sécuriser l'accès piscine et mare", { project: "Piscine et mare", duration: 480, urgency: 3, importance: 3, deps: ["pi-liner"], materials: [{ name: "Panneaux ou filet de protection", cost: 0, have: false }], notes: "Poteaux et platines déjà achetés, il manque le système de protection. Une piscine enterrée privée doit avoir un dispositif de sécurité normalisé dès sa mise en service (obligation légale), sans attendre que la petite marche." }),
+  // Cabane
+  X("c-faitage", "abri", "Cabane : poser les tuiles de faîtage", { project: "Cabane", duration: 180, deps: ["t-abri"], materials: [{ name: "Tuiles de faîtage", cost: 0, have: true }, BOIS_CAB] }),
+  X("c-frise", "abri", "Cabane : finir la frise", { project: "Cabane", duration: 180, materials: [BOIS_CAB] }),
+  X("c-caches", "abri", "Cabane : poser les caches autour de la toiture", { project: "Cabane", duration: 120, deps: ["c-frise", "t-abri-toit"] }),
+  X("c-finitions", "abri", "Cabane : finitions", { project: "Cabane", duration: 240, deps: ["c-faitage", "c-caches"] }),
+  // Jardin
+  X("j-brouette", "jardin", "Réparer la brouette (la roue a repercé)", { kind: "reparation", duration: 45, urgency: 3, materials: [{ name: "Roue de brouette increvable", cost: 25, have: false }], notes: "Bloque l'allée et la bande d'accès." }),
+  X("j-tropical", "jardin", "Créer la zone tropicale entre la cabane et la maison", { project: "Coin douche exotique", duration: 960, urgency: 1, waitUntil: "2027-04-01", notes: "Des chênes sont déjà plantés." }),
+  X("j-calendrier", "jardin", "Établir le calendrier des plantations par saison", { duration: 60 }),
+  X("j-etendoir-choix", "jardin", "Choisir l'emplacement de l'étendoir extérieur", { duration: 30, notes: "Pas trop loin, pas moche." }),
+  X("j-etendoir", "jardin", "Installer l'étendoir extérieur", { duration: 120, deps: ["j-etendoir-choix"], materials: [{ name: "Étendoir extérieur", cost: 80, have: false }] }),
+  X("j-pergola", "terrasse", "Pergola végétale devant la chambre (poteaux déjà là)", { project: "Pergola", duration: 960, importance: 3, notes: "Avant l'été 2027, pour protéger la chambre du soleil." }),
+  X("j-vigne", "terrasse", "Planter vignes et grimpantes au pied de la pergola", { project: "Pergola", duration: 90, deps: ["j-pergola"], materials: [{ name: "Vignes et grimpantes", cost: 60, have: false }] }),
+  // Potager
+  X("pt-plantations", "potager", "Potager : premières plantations", { project: "Potager", duration: 240, deps: ["t-potager-planches"], waitUntil: "2027-03-15" }),
+  // Poulailler
+  X("po-plan", "poulailler", "Dessiner le nouveau poulailler (bardage bois debout)", { project: "Poulailler", duration: 180, notes: "Derrière la maison, joli côté visible." }),
+  X("po-construire", "poulailler", "Construire le poulailler", { project: "Poulailler", duration: 1440, deps: ["po-plan"], materials: [{ name: "Bois poulailler et bardage", cost: 300, have: false }] }),
+  // Accès, parking, portail
+  X("a-bande", "acces", "Chemin d'accès : bande de 1 m (géotextile + cailloux)", { project: "Accès", duration: 240, deps: ["j-brouette"], materials: [{ name: "Géotextile bande d'accès", cost: 0, have: true }, { name: "Cailloux bande d'accès", cost: 80, have: false }] }),
+  X("a-parking", "acces", "Pavage granit du parking (4 × 8 m)", { project: "Accès", duration: 2400, urgency: 1, materials: [{ name: "Pavés granit 32 m²", cost: 0, have: false }], notes: "Chiffrer les pavés et le lit de pose." }),
+  X("a-portail-choix", "acces", "Choisir le portail motorisé 4 m et la clôture", { project: "Portail", duration: 120 }),
+  X("a-portail", "acces", "Poser le portail motorisé 4 m", { project: "Portail", duration: 960, deps: ["a-portail-choix"], materials: [{ name: "Portail motorisé 4 m", cost: 0, have: false }] }),
+  X("a-bardage", "acces", "Habiller la clôture en bardage bois debout", { project: "Portail", duration: 960, urgency: 1, deps: ["a-portail"] }),
+  // Terrasse de l'entrée (le bois et les lambourdes sont déjà là)
+  X("e-plots-choix", "terrasse_entree", "Choisir la solution de plots béton (tubes PVC ?)", { project: "Terrasse de l'entrée", duration: 60, urgency: 3, importance: 3, notes: "Bois (30 m²) et lambourdes déjà achetés. Restes de tubes PVC disponibles." }),
+  X("e-plots", "terrasse_entree", "Couler les plots béton", { project: "Terrasse de l'entrée", duration: 480, urgency: 3, importance: 3, deps: ["e-plots-choix"], materials: [{ name: "Béton en sacs (plots)", cost: 60, have: false }, { name: "Tubes PVC", cost: 0, have: true }] }),
+  X("e-terrasse", "terrasse_entree", "Poser lambourdes et lames, bien de niveau (~20 m²)", { project: "Terrasse de l'entrée", duration: 1440, urgency: 3, importance: 3, deps: ["e-plots"] }),
+  X("e-rampe", "terrasse_entree", "Créer la pente pour les courses", { project: "Terrasse de l'entrée", duration: 240, deps: ["e-terrasse"] }),
+  X("e-local", "terrasse_entree", "Imaginer le local fermé vélos et mobylettes", { project: "Terrasse de l'entrée", duration: 120, urgency: 1, deps: ["e-terrasse"] })
 );
 SEED_TASKS.forEach(t => { if (!t.zone) t.zone = t.place; });

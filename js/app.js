@@ -26,7 +26,7 @@ const isOutdoor = t => PLACES[placeOf(t)].level === "ext" || !!PLACES[placeOf(t)
 function freshData() {
   const tasks = {};
   SEED_TASKS.forEach(t => tasks[t.id] = { deps: [], materials: [], status: "todo", notes: "", assignee: "", ...t, updatedAt: 0 });
-  return { v: 3, tasks, log: {}, settings: { weeklyHours: 4, guide: "", players: { lui: { name: "Baptiste" }, elodie: { name: "Elodie" } }, updatedAt: 0 } };
+  return { v: 4, tasks, log: {}, settings: { weeklyHours: 4, guide: "", players: { lui: { name: "Baptiste" }, elodie: { name: "Elodie" } }, updatedAt: 0 } };
 }
 function migrate(d) {
   if (!d || !d.tasks) return freshData();
@@ -48,6 +48,16 @@ function migrate(d) {
     const l = d.tasks["t-liege"], s = SEED_TASKS.find(x => x.id === "t-liege");
     if (l && l.place === "maison" && l.status !== "done") Object.assign(l, { place: s.place, title: s.title, duration: s.duration, zone: s.zone, updatedAt: Date.now() });
     d.v = 3;
+  }
+  if (d.v < 4) {
+    // extérieur (23/11/2026) : nouvelles tâches, et mise à jour des tâches de départ encore jamais modifiées
+    const OLD = { "t-abri": "Terminer la structure de l'abri", "t-abri-toit": "Couvrir le toit de l'abri", "t-allee": "Faire l'allée en gravier" };
+    SEED_TASKS.forEach(s => {
+      const cur = d.tasks[s.id];
+      if (!cur) d.tasks[s.id] = { deps: [], materials: [], status: "todo", notes: "", assignee: "", ...s, updatedAt: Date.now() };
+      else if (OLD[s.id] && cur.title === OLD[s.id] && cur.status !== "done") d.tasks[s.id] = { ...cur, ...s, updatedAt: Date.now() };
+    });
+    d.v = 4;
   }
   return d;
 }
@@ -611,7 +621,7 @@ function stateForClaude() {
 function claudePrompt(ask) {
   const lui = playerName("lui"), elle = playerName("elodie"), c = S.dev.ctx;
   const pieces = Object.entries(PLACES).map(([k, p]) => k + " = " + p.name).join(", ");
-  return `Tu es Baloo, le guide de l'appli « Maison de Saucats » : la gestion de la maison de ${lui} et ${elle} (et de Baloo, leur berger blanc suisse), à Saucats en Gironde. Maison bois à étage : au rez-de-chaussée entrée, séjour avec cheminée, escalier et grande hauteur sous plafond (vide sur séjour), cuisine-salle à manger, couloir, 2 chambres (la 2 sert de bureau et chambre d'amis), salle d'eau, WC, buanderie-cellier ; à l'étage suite parentale avec penderie et coin coiffeuse, salle de bain, WC, coursive, terrasse du haut qui sert de salle de sport. Un bébé arrive en février 2027. Dehors : terrasse bois, piscine non finie, abri en construction, potager, poulailler, puits.
+  return `Tu es Baloo, le guide de l'appli « Maison de Saucats » : la gestion de la maison de ${lui} et ${elle} (et de Baloo, leur berger blanc suisse), à Saucats en Gironde. Maison bois à étage : au rez-de-chaussée entrée, séjour avec cheminée, escalier et grande hauteur sous plafond (vide sur séjour), cuisine-salle à manger, couloir, 2 chambres (la 2 sert de bureau et chambre d'amis), salle d'eau, WC, buanderie-cellier ; à l'étage suite parentale avec penderie et coin coiffeuse, salle de bain, WC, coursive, terrasse du haut qui sert de salle de sport. Un bébé arrive en février 2027. Dehors : terrasse bois côté jardin (future pergola végétale devant la chambre), piscine en cours (maçonnerie faite, pisciniste au printemps 2027), mare naturelle à créer à côté, cabane en finition, allée, zone tropicale et méditerranéenne à venir, potager en permaculture, poulailler à reconstruire, puits, terrasse de l'entrée à poser, chemin d'accès, parking en granit et portail motorisé à faire. Sol sableux, Gironde.
 ${S.data.settings.guide ? "\nConsignes du foyer :\n" + S.data.settings.guide + "\n" : ""}
 C'est ${S.dev.me ? playerName(S.dev.me) : lui} qui écrit. Aujourd'hui (${todayISO()}) : ${fmtMin(c.time)} de dispo, ${{ all: "dedans ou dehors", in: "dedans", out: "dehors" }[c.where]}, ${{ normal: "en forme", tired: "fatigué après une garde", off: "jour de récupération" }[c.energy]}.
 

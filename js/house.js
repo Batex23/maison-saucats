@@ -26,18 +26,21 @@ const PLACES = {
   facades:   { name: "Façades et toiture", short: "Façades", level: "ext", poly: R(2, 1, 13, 7), h: 1.6, roof: true },
   terrasse:  { name: "Terrasse", short: "Terrasse", level: "ext", poly: R(2, 8, 14.5, 1.8), h: 0.15 },
   piscine:   { name: "Piscine", short: "Piscine", level: "ext", poly: R(4.5, 11.2, 8.5, 3.6), h: 0.2 },
-  poulailler:{ name: "Poulailler", short: "Poules", level: "ext", poly: R(16.5, 11, 3.2, 3.2), h: 0.7 },
+  poulailler:{ name: "Poulailler", short: "Poules", level: "ext", poly: R(17, 1.5, 3, 3), h: 0.7 },
+  mare:      { name: "Mare", short: "Mare", level: "ext", poly: R(14.5, 11.2, 5.5, 4), h: 0.08 },
+  terrasse_entree: { name: "Terrasse de l'entrée", short: "Terr. entrée", level: "ext", poly: R(2.5, -2.9, 5.5, 2.4), h: 0.15 },
+  acces:     { name: "Chemin d'accès, parking et portail", short: "Accès", level: "ext", poly: R(10, -6.6, 8, 4.2), h: 0.06 },
   puits:     { name: "Puits", short: "Puits", level: "ext", poly: R(10.2, 17, 1.4, 1.4), h: 0.45 },
   potager:   { name: "Potager", short: "Potager", level: "ext", poly: R(0.5, 17, 7, 8), h: 0.12 },
   abri:      { name: "Abri de jardin", short: "Abri", level: "ext", poly: R(13, 19.5, 5, 4), h: 1.0 },
-  jardin:    { name: "Jardin", short: "Jardin", level: "ext", poly: R(0, 0, 21, 26.5), h: 0, ground: true }
+  jardin:    { name: "Jardin", short: "Jardin", level: "ext", poly: R(0, -7.5, 21, 34), h: 0, ground: true }
 };
 const VOIDS = {
   etage: [{ label: "Vide sur séjour", poly: R(6.4, 0, 5.0, 5.3) }]
 };
 const LEVEL_LABEL = { rdc: "Rez-de-chaussée", etage: "Étage", ext: "Extérieur" };
 const PLACE_ORDER = ["maison", "entree", "sejour", "cuisine", "couloir", "ch1", "ch2", "sde", "wc_rdc", "buanderie", "palier", "suite", "sdb", "wc_etage", "terrasse_etage",
-  "terrasse", "facades", "jardin", "piscine", "abri", "potager", "poulailler", "puits"];
+  "terrasse", "terrasse_entree", "acces", "facades", "jardin", "piscine", "mare", "abri", "potager", "poulailler", "puits"];
 
 /* ---------- projection ---------- */
 const ISO_S = 40, C30 = Math.cos(Math.PI / 6), S30 = 0.5;
@@ -94,6 +97,7 @@ function houseSVG(level, info, selected) {
     const [cx, cy] = centroid(v.poly), [X, Y] = iso(cx, cy, 0.18);
     svg += `<text class="void-label" font-size="${(20 * sk).toFixed(0)}" x="${X.toFixed(0)}" y="${(Y + 34).toFixed(0)}">${esc(v.label)}</text>`;
   });
+  const labels = [];
   order.forEach(k => {
     const P = PLACES[k], h = level === "ext" ? (P.h || 0.1) : 0.42;
     const base = level === "ext" ? P.poly : inset(P.poly, 0.06);
@@ -112,15 +116,16 @@ function houseSVG(level, info, selected) {
     svg += decor(k, h);
     if (!P.ground) {
       const [cx, cy] = centroid(P.poly), [X, Y] = iso(cx, cy, P.roof ? h + 0.5 : h);
-      svg += `<text class="lbl" font-size="${fs}" x="${X.toFixed(0)}" y="${(Y + 8 * sk).toFixed(0)}">${esc(P.short)}</text>`;
-      if (st.count) svg += `<g class="cnt tone-${st.tone || "none"}"><circle cx="${(X).toFixed(0)}" cy="${(Y - 26 * sk).toFixed(0)}" r="${rr}"/><text font-size="${cfs}" x="${X.toFixed(0)}" y="${(Y - 19 * sk).toFixed(0)}">${st.count}</text></g>`;
+      labels.push(`<g class="room-lbl" data-place="${k}"><text class="lbl" font-size="${fs}" x="${X.toFixed(0)}" y="${(Y + 8 * sk).toFixed(0)}">${esc(P.short)}</text>`);
+      if (st.count) labels[labels.length - 1] += `<g class="cnt tone-${st.tone || "none"}"><circle cx="${(X).toFixed(0)}" cy="${(Y - 26 * sk).toFixed(0)}" r="${rr}"/><text font-size="${cfs}" x="${X.toFixed(0)}" y="${(Y - 19 * sk).toFixed(0)}">${st.count}</text></g>`;
+      labels[labels.length - 1] += `</g>`;
     } else if (st.count) {
-      const [X, Y] = iso(18, 5, 0);
-      svg += `<text class="lbl" font-size="${fs}" x="${X.toFixed(0)}" y="${(Y + 8 * sk).toFixed(0)}">Jardin</text><g class="cnt tone-${st.tone || "none"}"><circle cx="${X.toFixed(0)}" cy="${(Y - 26 * sk).toFixed(0)}" r="${rr}"/><text font-size="${cfs}" x="${X.toFixed(0)}" y="${(Y - 19 * sk).toFixed(0)}">${st.count}</text></g>`;
+      const [X, Y] = iso(19, 21, 0);
+      labels.push(`<g class="room-lbl" data-place="${k}"><text class="lbl" font-size="${fs}" x="${X.toFixed(0)}" y="${(Y + 8 * sk).toFixed(0)}">Jardin</text><g class="cnt tone-${st.tone || "none"}"><circle cx="${X.toFixed(0)}" cy="${(Y - 26 * sk).toFixed(0)}" r="${rr}"/><text font-size="${cfs}" x="${X.toFixed(0)}" y="${(Y - 19 * sk).toFixed(0)}">${st.count}</text></g></g>`);
     }
     svg += `</g>`;
   });
-  return svg + `</svg>`;
+  return svg + labels.join("") + `</svg>`;
 }
 
 /* quelques repères dessinés : escalier, cheminée, lit, baignoire… */
@@ -139,5 +144,7 @@ function decor(k, h) {
   if (k === "piscine") s += `<polygon class="deco-water" points="${ptsStr([iso(5.2, 13.6, h), iso(12.3, 13.6, h), iso(12.3, 14.2, h), iso(5.2, 14.2, h)])}"/>`;
   if (k === "potager") for (let i = 0; i < 6; i++) s += box(3.3, 17.8 + i * 1.2, 3.8, 0.55, h, "deco-green");
   if (k === "potager") s += box(0.8, 17.6, 2, 6.6, h, "deco-glass");
+  if (k === "mare") { s += box(14.7, 11.4, 1.6, 3.6, h, "deco-green"); [[16.4, 11.4, 1.8, 1.8], [16.4, 13.3, 1.8, 1.8], [18.2, 11.4, 1.7, 3.7]].forEach(([x, y, w, d], i) => s += `<polygon class="deco-water" style="opacity:${0.55 + i * 0.2}" points="${ptsStr([iso(x, y, h), iso(x + w, y, h), iso(x + w, y + d, h), iso(x, y + d, h)])}"/>`); }
+  if (k === "acces") for (let i = 0; i < 4; i++) s += line(iso(10.2 + i * 2, -6.4, h), iso(10.2 + i * 2, -2.6, h));
   return s;
 }
