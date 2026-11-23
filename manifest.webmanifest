@@ -1,7 +1,7 @@
 {
   "name": "Maison de Saucats",
   "short_name": "Saucats",
-  "description": "Les quêtes de la maison : bricolage, entretien, achats et planning, à deux.",
+  "description": "Les tâches de la maison : bricolage, entretien, achats et planning, à deux.",
   "lang": "fr",
   "start_url": "./#carte",
   "scope": "./",

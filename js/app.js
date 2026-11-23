@@ -1,4 +1,4 @@
-/* Maison de Saucats — appli de quêtes de la maison. Tout tourne dans le téléphone ;
+/* Maison de Saucats — appli des tâches de la maison. Tout tourne dans le téléphone ;
    la synchro passe par un fichier JSON dans un dépôt GitHub privé. */
 "use strict";
 
@@ -46,17 +46,12 @@ function commit(msg) {
 function putTask(t) { t.updatedAt = Date.now(); S.data.tasks[t.id] = t; }
 function patchTask(id, patch) { const t = { ...S.data.tasks[id], ...patch }; putTask(t); }
 
-const xpFor = t => 10 + Math.round((+t.duration || 30) / 5);
-function xpOf(who) { return Object.values(S.data.log).filter(l => l.who === who || l.who === "tous").reduce((s, l) => s + (+l.xp || 0), 0); }
-function levelOf(xp) { const lv = Math.floor(Math.sqrt(xp / 40)) + 1; const lo = 40 * (lv - 1) ** 2, hi = 40 * lv ** 2; return { lv, pct: Math.round((xp - lo) / (hi - lo) * 100), toNext: hi - xp }; }
 
 function completeTask(id) {
   const t = S.data.tasks[id]; if (!t) return;
   const who = S.dev.me || "lui";
-  const before = levelOf(xpOf(who)).lv;
-  const gain = xpFor(t);
   const lid = uid();
-  S.data.log[lid] = { id: lid, taskId: id, title: t.title, who, xp: gain, date: todayISO() };
+  S.data.log[lid] = { id: lid, taskId: id, title: t.title, who, date: todayISO() };
   let extra = "";
   if (t.kind === "entretien") patchTask(id, { lastDone: todayISO() });
   else {
@@ -66,8 +61,7 @@ function completeTask(id) {
     if (unl.length) extra = " · Débloqué : " + unl.map(x => x.title).join(", ");
   }
   commit();
-  const after = levelOf(xpOf(who)).lv;
-  toast(`+${gain} XP pour ${playerName(who)}${after > before ? " · NIVEAU " + after + " !" : ""}${extra}`, "xp");
+  toast(`« ${t.title} » : c'est fait.${extra}`, extra ? "xp" : "");
 }
 
 /* ---------------- analyse : état, score, raisons ---------------- */
@@ -122,7 +116,7 @@ function localPlan() {
   const ok = t => whereOk(t) && mine(t) && (+t.duration || 30) <= cap;
   const chores = tasksList().filter(t => t._.state === "due" && ok(t)).sort((a, b) => b._.score - a._.score);
   const quests = tasksList().filter(t => t._.state === "ready" && ok(t)).sort((a, b) => b._.score - a._.score);
-  // on alterne : une corvée en retard, puis une quête qui fait avancer les projets
+  // on alterne : une corvée en retard, puis une tâche qui fait avancer les projets
   const pool = [];
   while (chores.length || quests.length) { if (chores.length) pool.push(chores.shift()); if (quests.length) pool.push(quests.shift()); }
   for (const t of pool) { const d = +t.duration || 30; if (d <= left) { out.push({ t, min: d }); left -= d; } }
@@ -208,7 +202,7 @@ function questRow(t, o = {}) {
       <div class="meta">${o.min ? `<b class="num">${fmtMin(o.min)}</b>${o.partial ? " pour commencer" : ""} · ` : ""}${esc(metaLine(t, !!o.min))}</div>
       ${w ? `<div class="why muted">${w}</div>` : ""}
       ${o.why ? `<div class="why">${esc(o.why)}</div>` : ""}
-      <div class="tags">${badge(st)}${(a.reasons || []).map(r => `<span class="tag">${esc(r)}</span>`).join("")}${st !== "done" && st !== "ok" ? `<span class="xp">+${xpFor(t)} XP</span>` : ""}${who}</div>
+      <div class="tags">${badge(st)}${(a.reasons || []).map(r => `<span class="tag">${esc(r)}</span>`).join("")}${who}</div>
     </div>
     ${canDo ? `<button class="done-btn" data-act="done" data-id="${t.id}" aria-label="Terminer « ${esc(t.title)} »">✓</button>` : "<span></span>"}
   </div>`;
@@ -219,11 +213,12 @@ function guideBox(html, actions = "") {
 }
 
 function renderHud() {
-  const me = S.dev.me || "lui", xp = xpOf(me), L = levelOf(xp);
+  const me = S.dev.me || "lui";
+  const due = tasksList().filter(t => t._ && t._.state === "due").length, ready = tasksList().filter(t => t._ && t._.state === "ready").length;
   const st = S.sync.state;
   $("#hud").innerHTML = `<div class="face">${mini(me, 2)}</div>
     <div class="who"><div class="name">${esc(playerName(me).toUpperCase())}</div>
-      <div class="lv"><span>NV ${L.lv}</span><span class="xpbar" title="${xp} XP"><i style="width:${L.pct}%"></i></span></div></div>
+      <div class="lv"><span>${due} À FAIRE · ${ready} FAISABLE${ready > 1 ? "S" : ""}</span></div></div>
     <div class="day">${new Date().toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short" }).toUpperCase()}<br>
       <span class="sync-dot ${st === "ok" ? "ok" : st === "err" ? "err" : st === "busy" ? "busy" : ""}"></span>${st === "ok" ? "SYNC" : st === "busy" ? "…" : st === "err" ? "HORS LIGNE" : "LOCAL"}</div>`;
 }
@@ -235,20 +230,20 @@ function viewCarte() {
   const chip = (k, v, l) => `<button class="chip" data-ctx="${k}" data-v="${v}" aria-pressed="${String(c[k]) === String(v)}">${l}</button>`;
   const hello = S.dev.me ? playerName(S.dev.me) : "toi";
   return `
-  <section class="box mapbox"><canvas class="map" id="map" width="192" height="264" aria-label="Carte du terrain. Touche une zone pour voir ses quêtes."></canvas>
-    <div class="maplegend">Touche une zone pour voir ses quêtes. Un « ! » jaune signale une quête urgente.</div></section>
-  ${guideBox(`Wouf ! Salut ${esc(hello)}. Aujourd'hui il y a <b>${due}</b> corvée${due > 1 ? "s" : ""} d'entretien et <b>${ready}</b> quête${ready > 1 ? "s" : ""} faisable${ready > 1 ? "s" : ""} tout de suite. Tu as combien de temps ?`,
+  <section class="box mapbox"><canvas class="map" id="map" width="192" height="264" aria-label="Carte du terrain. Touche une zone pour voir ce qu'il y a à faire."></canvas>
+    <div class="maplegend">Touche une zone pour voir ce qu'il y a à faire. Un « ! » jaune signale une urgence.</div></section>
+  ${guideBox(`Wouf ! Salut ${esc(hello)}. Aujourd'hui il y a <b>${due}</b> corvée${due > 1 ? "s" : ""} d'entretien et <b>${ready}</b> tâche${ready > 1 ? "s" : ""} faisable${ready > 1 ? "s" : ""} tout de suite. Tu as combien de temps ?`,
     `<div class="sec">
       <div class="chips">${chip("time", 15, "15 min")}${chip("time", 30, "30 min")}${chip("time", 60, "1 h")}${chip("time", 120, "2 h")}${chip("time", 240, "Demi-journée")}${chip("time", 420, "Journée")}</div>
       <div class="chips">${chip("where", "all", "Partout")}${chip("where", "in", "Dedans")}${chip("where", "out", "Dehors")}</div>
       <div class="chips">${chip("energy", "normal", "En forme")}${chip("energy", "tired", "Retour de garde")}${chip("energy", "off", "Jour de récup")}</div>
     </div>`)}
   <section class="sec">
-    <div class="sec-head"><h2>Mission du jour</h2><span class="hint">${fmtMin(c.time)}</span></div>
-    ${plan.length ? plan.map(p => questRow(p.t, { min: p.min, partial: p.partial })).join("") : `<div class="empty">Rien de faisable avec ces critères. Regarde le Sac : c'est sûrement un achat qui bloque.</div>`}
+    <div class="sec-head"><h2>Au programme aujourd'hui</h2><span class="hint">${fmtMin(c.time)}</span></div>
+    ${plan.length ? plan.map(p => questRow(p.t, { min: p.min, partial: p.partial })).join("") : `<div class="empty">Rien de faisable avec ces critères. Regarde les Achats : c'est sûrement un achat qui bloque.</div>`}
   </section>
   <section class="sec">
-    <button class="btn primary wide" data-act="wizard">+ Nouvelle quête avec Balou</button>
+    <button class="btn primary wide" data-act="wizard">+ Nouvelle tâche avec Balou</button>
     <button class="btn wide" data-act="claude">Demander à Claude</button>
   </section>`;
 }
@@ -268,12 +263,12 @@ function viewQuetes() {
   list.forEach(t => { const g = t.kind === "entretien" ? t.zone || "Autre" : t.project || t.zone || "Divers"; (groups[g] = groups[g] || []).push(t); });
   const order = { ready: 0, due: 0, buy: 1, blocked: 2, wait: 3, ok: 4, done: 5 };
   return `
-  <section class="sec"><div class="row" style="justify-content:space-between"><h2>Journal de quêtes</h2><button class="btn small primary" data-act="wizard">+ Quête</button></div>
+  <section class="sec"><div class="row" style="justify-content:space-between"><h2>Tâches</h2><button class="btn small primary" data-act="wizard">+ Tâche</button></div>
     <div class="chips">${filters.map(([k, l]) => `<button class="chip" data-filter="${k}" aria-pressed="${f === k}">${l}</button>`).join("")}</div></section>
   ${Object.keys(groups).length ? Object.entries(groups).sort((a, b) => a[0].localeCompare(b[0], "fr")).map(([g, ts]) => `
     <section class="sec"><div class="sec-head"><h2>${esc(g)}</h2><span class="hint num">${ts.length}</span></div>
     ${ts.sort((a, b) => (order[a._.state] - order[b._.state]) || (b._.score - a._.score)).map(t => questRow(t, { anyDo: true })).join("")}</section>`).join("")
-    : `<div class="empty">Aucune quête ici.</div>`}`;
+    : `<div class="empty">Aucune tâche ici.</div>`}`;
 }
 
 function viewSac() {
@@ -288,9 +283,9 @@ function viewSac() {
     ${p === "have" ? `<button class="btn small" data-act="unbuy" data-key="${esc(b.key)}">Retirer</button>`
       : `<div class="row" style="gap:10px;flex-wrap:nowrap"><span class="num">${b.borrow ? "" : b.cost ? fmtEur(b.cost) : ""}</span><input type="checkbox" data-act="bought" data-key="${esc(b.key)}" aria-label="${esc(b.name)} : je l'ai"></div>`}
   </div>`;
-  const intro = { now: "Ces objets débloquent des quêtes faisables. Les premiers rendent le plus service.", later: "Pour des quêtes encore bloquées ou en attente : inutile de les acheter maintenant.", have: "Ce que tu as déjà pour les quêtes en cours." }[p];
+  const intro = { now: "Ces achats débloquent des tâches faisables. Les premiers rendent le plus service.", later: "Pour des tâches encore bloquées ou en attente : inutile de les acheter maintenant.", have: "Ce que tu as déjà pour les tâches en cours." }[p];
   return `
-  <section class="sec"><h2>Sac</h2>
+  <section class="sec"><h2>Achats</h2>
     <div class="pocket-tabs">
       <button data-pocket="now" aria-pressed="${p === "now"}">ACHATS ${now.length}</button>
       <button data-pocket="later" aria-pressed="${p === "later"}">PLUS TARD ${later.length}</button>
@@ -306,7 +301,7 @@ function viewSac() {
 function viewAgenda() {
   const sc = schedule(12), cols = sc.weeks;
   const rows = Object.entries(sc.res).map(([id, r]) => ({ t: S.data.tasks[id], ...r })).sort((a, b) => a.start - b.start || a.end - b.end);
-  let head = `<div class="h" style="position:sticky;left:0;z-index:2;text-align:left;padding-left:8px">QUÊTE</div>`;
+  let head = `<div class="h" style="position:sticky;left:0;z-index:2;text-align:left;padding-left:8px">TÂCHE</div>`;
   for (let w = 0; w < cols; w++) { const d = new Date(sc.start); d.setDate(d.getDate() + 7 * w); head += `<div class="h">${w === 0 ? "CETTE<br>SEM." : String(d.getDate()).padStart(2, "0") + "/" + String(d.getMonth() + 1).padStart(2, "0")}</div>`; }
   const body = rows.map(r => {
     let h = `<div class="name" data-act="edit" data-id="${r.t.id}" role="button" tabindex="0" title="${esc(r.t.title)}">${esc(r.t.title)}</div>`;
@@ -324,12 +319,12 @@ function viewAgenda() {
       <div class="field"><label for="weekly">Heures par semaine</label><input id="weekly" type="number" min="1" max="60" value="${esc(S.data.settings.weeklyHours || 4)}"></div>
       <div class="field"><span class="flabel">Entretien estimé</span><div class="num" style="padding:9px 0">${fmtMin(sc.maint)} / sem.</div></div>
     </div>
-    <p class="muted" style="margin:0;font-size:.92rem">L'agenda range les quêtes par priorité, respecte ce qui doit être fini avant, les dates « pas avant » et laisse une semaine pour acheter le matériel manquant.</p>
+    <p class="muted" style="margin:0;font-size:.92rem">L'agenda range les tâches par priorité, respecte ce qui doit être fini avant, les dates « pas avant » et laisse une semaine pour acheter le matériel manquant.</p>
   </section>
   <section class="sec">
     <div class="sec-head"><h2>12 prochaines semaines</h2></div>
     <div class="legend"><span><i style="background:var(--accent)"></i>Prête</span><span><i style="background:var(--amber)"></i>Achat avant</span></div>
-    ${rows.length ? `<div class="gantt-wrap"><div class="gantt" style="grid-template-columns:150px repeat(${cols},50px)">${head}${body}</div></div>` : `<div class="empty">Aucune quête à planifier.</div>`}
+    ${rows.length ? `<div class="gantt-wrap"><div class="gantt" style="grid-template-columns:150px repeat(${cols},50px)">${head}${body}</div></div>` : `<div class="empty">Aucune tâche à planifier.</div>`}
     ${sc.later.length ? `<div class="box"><h2 style="font-size:10px">Au-delà de 12 semaines</h2><div style="margin-top:8px">${sc.later.map(t => esc(t.title)).join(" · ")}</div></div>` : ""}
   </section>`;
 }
@@ -337,18 +332,17 @@ function viewAgenda() {
 function viewEquipe() {
   const me = S.dev.me, week = iso(mondayOf(new Date()));
   const card = k => {
-    const xp = xpOf(k), L = levelOf(xp);
-    const n = Object.values(S.data.log).filter(l => (l.who === k || l.who === "tous") && l.date >= week).length;
+    const n = Object.values(S.data.log).filter(l => l.who === k && l.date >= week).length;
+    const open = tasksList().filter(t => (t.assignee === k || t.assignee === "tous") && t._.state !== "done" && t._.state !== "ok").length;
     return `<div class="box trainer ${me === k ? "me" : ""}"><div class="pic">${mini(k, 4)}</div>
-      <div class="tn">${esc(playerName(k).toUpperCase())}</div><div class="st">Niveau ${L.lv} · ${xp} XP</div>
-      <div class="xpbar"><i style="width:${L.pct}%"></i></div><div class="st">${n} quête${n > 1 ? "s" : ""} cette semaine</div>
+      <div class="tn">${esc(playerName(k).toUpperCase())}</div><div class="st">${open} tâche${open > 1 ? "s" : ""} attribuée${open > 1 ? "s" : ""}</div><div class="st">${n} faite${n > 1 ? "s" : ""} cette semaine</div>
       <button class="btn small ${me === k ? "gold" : ""}" data-act="me" data-v="${k}">${me === k ? "C'EST MOI" : "JE SUIS " + esc(playerName(k).toUpperCase())}</button></div>`;
   };
   const sy = S.dev.sync, st = S.data.settings;
   return `
   <section class="sec"><h2>L'équipe</h2>
     <div class="cards">${card("lui")}${card("elodie")}</div>
-    <div class="box"><div class="guide"><div class="portrait">${mini("balou", 3)}</div><div><div class="speaker">BALOU</div><div class="say">Chef de chantier, inspecteur du poulailler et gardien du sac de croquettes.</div></div></div></div>
+    <div class="box"><div class="guide"><div class="portrait">${mini("balou", 3)}</div><div><div class="speaker">BALOU</div><div class="say">Chef de chantier et inspecteur du poulailler. C'est lui qui pose les questions.</div></div></div></div>
   </section>
   <section class="box sec">
     <h2>Prénoms</h2>
@@ -366,7 +360,7 @@ function viewEquipe() {
   </section>
   <section class="box sec">
     <h2>Synchro entre vos téléphones</h2>
-    <p class="muted" style="margin:0;font-size:.92rem">Les quêtes sont gardées dans un fichier d'un dépôt GitHub <b>privé</b>. Chaque téléphone a besoin d'un jeton GitHub limité à ce dépôt. Sans synchro, tout reste sur ce téléphone.</p>
+    <p class="muted" style="margin:0;font-size:.92rem">Les tâches sont gardées dans un fichier d'un dépôt GitHub <b>privé</b>. Chaque téléphone a besoin d'un jeton GitHub limité à ce dépôt. Sans synchro, tout reste sur ce téléphone.</p>
     <div class="grid2">
       <div class="field"><label for="sy-owner">Compte</label><input id="sy-owner" type="text" value="${esc(sy.owner)}" autocapitalize="off"></div>
       <div class="field"><label for="sy-repo">Dépôt privé</label><input id="sy-repo" type="text" value="${esc(sy.repo)}" autocapitalize="off"></div>
@@ -417,11 +411,11 @@ function openZone(z) {
   const list = tasksList().filter(t => (ZONE_RECTS[t.zone] ? t.zone : "Jardin") === z && t._.state !== "done");
   const order = { due: 0, ready: 0, buy: 1, blocked: 2, wait: 3, ok: 4 };
   openSheet(`<div class="row" style="justify-content:space-between"><h2>${esc(z.toUpperCase())}</h2><button class="btn small" data-act="close">Fermer</button></div>
-    ${list.length ? list.sort((a, b) => order[a._.state] - order[b._.state] || b._.score - a._.score).map(t => questRow(t)).join("") : `<div class="empty">Aucune quête ici. Tout est calme.</div>`}
-    <button class="btn primary wide" data-act="wizard" data-zone="${esc(z)}">+ Nouvelle quête ici</button>`);
+    ${list.length ? list.sort((a, b) => order[a._.state] - order[b._.state] || b._.score - a._.score).map(t => questRow(t)).join("") : `<div class="empty">Rien à faire ici pour l'instant.</div>`}
+    <button class="btn primary wide" data-act="wizard" data-zone="${esc(z)}">+ Nouvelle tâche ici</button>`);
 }
 
-/* ---------- édition complète d'une quête ---------- */
+/* ---------- édition complète d'une tâche ---------- */
 function openEditor(id, preset = {}) {
   const t = id ? S.data.tasks[id] : { title: "", kind: "projet", zone: "Maison", project: "", duration: 60, urgency: 2, importance: 2, outdoor: false, deps: [], materials: [], status: "todo", everyDays: 7, lastDone: todayISO(), waitUntil: "", notes: "", assignee: "", ...preset };
   const projects = [...new Set(tasksList().map(x => x.project).filter(Boolean))];
@@ -430,7 +424,7 @@ function openEditor(id, preset = {}) {
   const sel = (n, opts, v) => `<select id="f-${n}">${opts.map(([k, l]) => `<option value="${esc(k)}" ${String(k) === String(v) ? "selected" : ""}>${esc(l)}</option>`).join("")}</select>`;
   const lvl = [[1, "Faible"], [2, "Moyenne"], [3, "Forte"]];
   const sh = openSheet(`
-    <div class="row" style="justify-content:space-between"><h2>${id ? "MODIFIER" : "NOUVELLE QUÊTE"}</h2><button class="btn small" data-act="close">Fermer</button></div>
+    <div class="row" style="justify-content:space-between"><h2>${id ? "MODIFIER" : "NOUVELLE TÂCHE"}</h2><button class="btn small" data-act="close">Fermer</button></div>
     <div class="field"><label for="f-title">Intitulé</label><input id="f-title" type="text" value="${esc(t.title)}"></div>
     <div class="grid2"><div class="field"><label for="f-kind">Type</label>${sel("kind", Object.entries(KINDS), t.kind)}</div>
       <div class="field"><label for="f-zone">Zone</label>${sel("zone", ZONES.map(z => [z, z]), t.zone)}</div></div>
@@ -448,7 +442,7 @@ function openEditor(id, preset = {}) {
       <div class="field"><span class="flabel">Matériel et outils</span><div id="mats" class="sec" style="gap:6px"></div>
         <button class="btn small" data-act="mat-add" style="align-self:flex-start;margin-top:6px">+ Objet</button></div>
       <div class="field"><span class="flabel">À faire après</span>
-        ${others.length ? `<div class="deplist">${others.map(o => `<label><input type="checkbox" value="${o.id}" ${(t.deps || []).includes(o.id) ? "checked" : ""} style="accent-color:var(--accent)">${esc(o.title)}</label>`).join("")}</div>` : `<div class="muted">Aucune autre quête.</div>`}</div>
+        ${others.length ? `<div class="deplist">${others.map(o => `<label><input type="checkbox" value="${o.id}" ${(t.deps || []).includes(o.id) ? "checked" : ""} style="accent-color:var(--accent)">${esc(o.title)}</label>`).join("")}</div>` : `<div class="muted">Aucune autre tâche.</div>`}</div>
     </div>
     <div class="field"><label for="f-notes">Notes</label><textarea id="f-notes">${esc(t.notes || "")}</textarea></div>
     <div class="row" style="justify-content:space-between">${id ? `<button class="btn danger" data-act="del">Supprimer</button>` : "<span></span>"}<button class="btn primary" data-act="save">Enregistrer</button></div>`);
@@ -469,10 +463,10 @@ function openEditor(id, preset = {}) {
     if (act === "mat-del") { mats.splice(+b.dataset.i, 1); drawMats(); }
     if (act === "del") {
       if (!b.dataset.armed) { b.dataset.armed = "1"; b.textContent = "Confirmer"; return; }
-      patchTask(id, { deleted: true }); closeSheet(); commit("Quête supprimée");
+      patchTask(id, { deleted: true }); closeSheet(); commit("Tâche supprimée");
     }
     if (act === "save") {
-      const title = $("#f-title").value.trim(); if (!title) { $("#f-title").focus(); toast("Donne un nom à la quête."); return; }
+      const title = $("#f-title").value.trim(); if (!title) { $("#f-title").focus(); toast("Donne un nom à la tâche."); return; }
       const kind = $("#f-kind").value;
       const body = { ...(id ? S.data.tasks[id] : { id: uid(), createdAt: todayISO() }), title, kind, zone: $("#f-zone").value, assignee: $("#f-assignee").value,
         duration: +$("#f-duration").value || 30, urgency: +$("#f-urgency").value, importance: +$("#f-importance").value, outdoor: $("#f-outdoor").checked, notes: $("#f-notes").value.trim() };
@@ -481,7 +475,7 @@ function openEditor(id, preset = {}) {
       else Object.assign(body, { project: $("#f-project").value.trim(), status: $("#f-status").value, waitUntil: $("#f-wait").value || "",
         deps: [...sh.querySelectorAll(".deplist input:checked")].map(x => x.value),
         materials: mats.filter(m => m.name && m.name.trim()).map(m => ({ name: m.name.trim(), cost: +m.cost || 0, have: !!m.have, borrow: !!m.borrow })) });
-      putTask(body); closeSheet(); commit(id ? "Quête enregistrée" : "Quête ajoutée");
+      putTask(body); closeSheet(); commit(id ? "Tâche enregistrée" : "Tâche ajoutée");
     }
   });
 }
@@ -490,7 +484,7 @@ function openEditor(id, preset = {}) {
 function openWizard(zone) {
   const W = { step: "title", title: "", zone: zone || "", kind: "", duration: 0, everyDays: 0, mats: [], matIdx: 0, deps: [], urgency: 2, importance: 2, waitUntil: "", assignee: "" };
   const opens = tasksList().filter(t => t.kind !== "entretien" && t.status !== "done");
-  const box = html => `<div class="row" style="justify-content:space-between"><h2>NOUVELLE QUÊTE</h2><button class="btn small" data-act="close">Fermer</button></div>
+  const box = html => `<div class="row" style="justify-content:space-between"><h2>NOUVELLE TÂCHE</h2><button class="btn small" data-act="close">Fermer</button></div>
     <div class="guide"><div class="portrait">${mini("balou", 3)}</div><div><div class="speaker">BALOU</div><div class="say" id="wz-say"></div></div></div>
     <div id="wz-body" class="sec"></div>`;
   const sh = openSheet(box());
@@ -505,13 +499,13 @@ function openWizard(zone) {
     const s = W.step;
     if (s === "title") {
       say("Wouf ! Qu'est-ce que tu as en tête ? Dis-le simplement, je m'occupe du reste.");
-      body(`<div class="field"><label for="wz-title">La quête</label><input id="wz-title" type="text" value="${esc(W.title)}" placeholder="Ex : recoller le liège de l'entrée"></div>
+      body(`<div class="field"><label for="wz-title">La tâche</label><input id="wz-title" type="text" value="${esc(W.title)}" placeholder="Ex : recoller le liège de l'entrée"></div>
         <button class="btn primary" data-act="wz-title">Suivant ▶</button>`);
     } else if (s === "zone") {
       say(`« ${esc(W.title)} ». Ça se passe où ?`);
       body(choices(ZONES.map(z => [z, z]), "wz-zone") + back);
     } else if (s === "kind") {
-      say("C'est quel genre de quête ?");
+      say("C'est quel genre de tâche ?");
       body(choices([["projet", "Un projet, une construction"], ["reparation", "Une réparation"], ["entretien", "Une corvée qui revient régulièrement"]], "wz-kind") + back);
     } else if (s === "every") {
       say("Elle revient tous les combien ?");
@@ -534,7 +528,7 @@ function openWizard(zone) {
       body(choices([[5, "Moins de 10 €"], [20, "Une vingtaine d'euros"], [50, "Autour de 50 €"], [100, "Une centaine d'euros"], [250, "Entre 200 et 300 €"], [500, "500 € ou plus"]], "wz-cost") +
         `<div class="row"><div class="field" style="flex:1"><label for="wz-cost-n">Montant précis (€)</label><input id="wz-cost-n" type="number" min="0"></div><button class="btn" data-act="wz-cost-n" style="align-self:flex-end">OK</button></div>${back}`);
     } else if (s === "deps") {
-      say("Il faut finir une autre quête avant de pouvoir commencer celle-ci ?");
+      say("Il faut finir une autre tâche avant de pouvoir commencer celle-ci ?");
       body(opens.length ? `<div class="choices">${opens.map(o => `<button class="choice ${W.deps.includes(o.id) ? "on" : ""}" data-act="wz-dep" data-v="${o.id}">${esc(o.title)}</button>`).join("")}</div>
         <button class="btn primary" data-act="wz-deps-done">${W.deps.length ? "Valider ▶" : "Non, rien avant ▶"}</button>${back}` : `<button class="btn primary" data-act="wz-deps-done">Suivant ▶</button>`);
     } else if (s === "when") {
@@ -554,15 +548,15 @@ function openWizard(zone) {
       const unsure = W.mats.filter(m => m.unsure);
       let verdict;
       if (W.waitUntil) verdict = `Elle attendra le <b>${fmtDate(W.waitUntil)}</b>.`;
-      else if (W.deps.length) verdict = `Elle se débloquera après : <b>${W.deps.map(d => esc(S.data.tasks[d].title)).join(", ")}</b>.`;
-      else if (miss.length) verdict = `Il te manque <b>${miss.map(m => esc(m.name)).join(", ")}</b>${cost ? ` (≈ ${fmtEur(cost)})` : ""}. Je le range dans le Sac.`;
+      else if (W.deps.length) verdict = `Elle sera possible après : <b>${W.deps.map(d => esc(S.data.tasks[d].title)).join(", ")}</b>.`;
+      else if (miss.length) verdict = `Il te manque <b>${miss.map(m => esc(m.name)).join(", ")}</b>${cost ? ` (≈ ${fmtEur(cost)})` : ""}. Je l'ajoute aux achats.`;
       else verdict = "Tu as tout ce qu'il faut : elle est <b>faisable tout de suite</b> !";
       if (unsure.length) verdict += ` Pense à vérifier si tu as ${unsure.map(m => esc(m.name)).join(", ")} : je l'ai noté à acheter en attendant.`;
       say(`Récap ! ${verdict}`);
       body(`<div class="box" style="box-shadow:none"><div class="t" style="font-weight:700">${esc(W.title)}</div>
         <div class="muted" style="font-size:.92rem;margin-top:4px">${esc([W.zone, KINDS[W.kind], fmtMin(W.duration), W.kind === "entretien" ? "tous les " + W.everyDays + " j" : "", W.assignee === "tous" ? "Ensemble" : W.assignee ? playerName(W.assignee) : ""].filter(Boolean).join(" · "))}</div>
         ${W.mats.length ? `<div style="margin-top:6px;font-size:.95rem">${W.mats.map(m => esc(m.name) + (m.have ? " ✓" : m.borrow ? " (emprunt)" : m.cost ? " (" + fmtEur(m.cost) + ")" : "")).join(" · ")}</div>` : ""}</div>
-        <button class="btn primary" data-act="wz-save">Enregistrer la quête</button>${back}`);
+        <button class="btn primary" data-act="wz-save">Enregistrer la tâche</button>${back}`);
     }
   }
   sh.addEventListener("click", e => {
@@ -594,7 +588,7 @@ function openWizard(zone) {
         outdoor: W.zone !== "Maison", assignee: W.assignee, status: "todo", notes: "", deps: ent ? [] : W.deps, waitUntil: ent ? "" : W.waitUntil,
         materials: ent ? [] : W.mats.map(m => ({ name: m.name, cost: m.cost || 0, have: !!m.have, borrow: !!m.borrow })) };
       if (ent) Object.assign(t, { everyDays: W.everyDays, lastDone: todayISO() });
-      putTask(t); closeSheet(); commit("Nouvelle quête : " + W.title);
+      putTask(t); closeSheet(); commit("Nouvelle tâche : " + W.title);
     }
   });
   sh.addEventListener("keydown", e => {
@@ -624,22 +618,22 @@ C'est ${S.dev.me ? playerName(S.dev.me) : lui} qui écrit. Aujourd'hui (${todayI
 
 Ma demande : ${ask || "(je t'explique dans le message suivant)"}
 
-Quêtes actuelles de l'appli (JSON) :
+Tâches actuelles de l'appli (JSON) :
 ${JSON.stringify(stateForClaude())}
 
-Méthode : pose-moi tes questions une par une avant de planifier. De quoi j'ai besoin (matériel, outils, consommables), est-ce que je l'ai déjà, où l'acheter ou l'emprunter, combien de temps ça prend, ce qu'il faut finir avant, l'urgence, qui s'en occupe. Tiens compte du budget, de la météo et de ce qui débloque d'autres quêtes.
-Quand tout est clair, donne-moi le plan, puis termine par un bloc \`\`\`json contenant un tableau des NOUVELLES quêtes à ajouter dans l'appli, au format :
+Méthode : pose-moi tes questions une par une avant de planifier. De quoi j'ai besoin (matériel, outils, consommables), est-ce que je l'ai déjà, où l'acheter ou l'emprunter, combien de temps ça prend, ce qu'il faut finir avant, l'urgence, qui s'en occupe. Tiens compte du budget, de la météo et de ce qui débloque d'autres tâches.
+Quand tout est clair, donne-moi le plan, puis termine par un bloc \`\`\`json contenant un tableau des NOUVELLES tâches à ajouter dans l'appli, au format :
 [{"title":"…","kind":"projet|reparation|entretien","zone":"${ZONES.join("|")}","project":"…","duration":60,"urgency":1-3,"importance":1-3,"outdoor":true,"assignee":"lui|elodie|tous|","materials":[{"name":"…","cost":20,"have":false,"borrow":false}],"deps":["id existant ou titre d'une nouvelle quête"],"everyDays":null,"waitUntil":"AAAA-MM-JJ ou vide"}]`;
 }
 function openClaude() {
   const sh = openSheet(`
     <div class="row" style="justify-content:space-between"><h2>DEMANDER À CLAUDE</h2><button class="btn small" data-act="close">Fermer</button></div>
-    <div class="guide"><div class="portrait">${mini("balou", 3)}</div><div><div class="speaker">BALOU</div><div class="say">Explique ton idée. J'envoie tout l'état de la maison à Claude, il te pose ses questions, puis il te donne un bloc de quêtes à recoller ici.</div></div></div>
+    <div class="guide"><div class="portrait">${mini("balou", 3)}</div><div><div class="speaker">BALOU</div><div class="say">Explique ton idée. J'envoie tout l'état de la maison à Claude, il te pose ses questions, puis il te donne un bloc de tâches à recoller ici.</div></div></div>
     <div class="field"><label for="cl-ask">Ce que tu as en tête</label><textarea id="cl-ask" placeholder="Ex : j'aimerais finir l'abri avant la naissance, mais le bois est cher. Planifie-moi ça."></textarea></div>
     <button class="btn primary" data-act="cl-go">1 · Ouvrir Claude</button>
     <p class="muted" style="margin:0;font-size:.9rem">La demande est aussi copiée : si Claude s'ouvre vide, colle-la.</p>
     <div class="field"><label for="cl-back">2 · Colle ici la réponse finale de Claude</label><textarea id="cl-back" placeholder="Colle tout le message, je retrouve le bloc json."></textarea></div>
-    <button class="btn" data-act="cl-parse">Lire les quêtes</button>
+    <button class="btn" data-act="cl-parse">Lire les tâches</button>
     <div id="cl-preview" class="sec"></div>`);
   let items = [];
   sh.addEventListener("click", async e => {
@@ -653,11 +647,11 @@ function openClaude() {
     if (b.dataset.act === "cl-parse") {
       items = parseClaude($("#cl-back").value);
       $("#cl-preview").innerHTML = items.length ? `${items.map((x, i) => `<label class="quest" style="grid-template-columns:auto 1fr;padding-left:10px"><input type="checkbox" data-i="${i}" checked style="width:22px;height:22px;accent-color:var(--accent)"><span class="body"><span class="t">${esc(x.title)}</span><span class="meta" style="display:block">${esc([KINDS[x.kind], x.zone, fmtMin(x.duration), (x.materials || []).map(m => m.name).join(", ")].filter(Boolean).join(" · "))}</span></span></label>`).join("")}
-        <button class="btn primary" data-act="cl-add">Ajouter les quêtes cochées</button>` : `<div class="empty">Je ne trouve pas de bloc json valide dans ce texte.</div>`;
+        <button class="btn primary" data-act="cl-add">Ajouter les tâches cochées</button>` : `<div class="empty">Je ne trouve pas de bloc json valide dans ce texte.</div>`;
     }
     if (b.dataset.act === "cl-add") {
       const keep = [...sh.querySelectorAll("#cl-preview input:checked")].map(x => items[+x.dataset.i]);
-      const n = addImported(keep); closeSheet(); commit(n + " quête" + (n > 1 ? "s" : "") + " ajoutée" + (n > 1 ? "s" : ""));
+      const n = addImported(keep); closeSheet(); commit(n + " tâche" + (n > 1 ? "s" : "") + " ajoutée" + (n > 1 ? "s" : ""));
     }
   });
 }
@@ -718,7 +712,7 @@ async function ghGet() {
 async function ghPut(data, sha) {
   const clean = JSON.parse(canon(data));
   const r = await fetch(apiUrl(), { method: "PUT", headers: { ...ghHeaders(), "Content-Type": "application/json" },
-    body: JSON.stringify({ message: "Quêtes mises à jour par " + playerName(S.dev.me || "lui"), content: b64enc(JSON.stringify(clean, null, 1)), ...(sha ? { sha } : {}) }) });
+    body: JSON.stringify({ message: "Tâches mises à jour par " + playerName(S.dev.me || "lui"), content: b64enc(JSON.stringify(clean, null, 1)), ...(sha ? { sha } : {}) }) });
   if (!r.ok) throw { status: r.status };
   return (await r.json()).content.sha;
 }
@@ -810,7 +804,7 @@ function setBought(key, have) {
     if (!(t.materials || []).some(m => m.name && m.name.trim().toLowerCase() === key)) return;
     patchTask(t.id, { materials: t.materials.map(m => m.name && m.name.trim().toLowerCase() === key ? { ...m, have } : m) });
   });
-  commit(have ? "Rangé dans le sac" : "Remis dans la liste d'achats");
+  commit(have ? "Noté comme acheté" : "Remis dans la liste d'achats");
 }
 window.addEventListener("hashchange", () => { const h = location.hash.slice(1); if (TABS.includes(h) && h !== S.tab) { S.tab = h; render(); } });
 
