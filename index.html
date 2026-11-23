@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Maison de Saucats</title>
+<meta name="description" content="Les quêtes de la maison : bricolage, entretien, achats et planning, à deux.">
+<meta name="theme-color" content="#3f7f4a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Saucats">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;600;700&family=Press+Start+2P&display=swap">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<header class="hud" id="hud"></header>
+<main class="wrap" id="view" tabindex="-1"></main>
+
+<nav class="tabs" aria-label="Sections">
+  <button data-tab="carte"><span class="ico">▲</span>Carte</button>
+  <button data-tab="quetes"><span class="ico">!</span>Quêtes</button>
+  <button data-tab="sac"><span class="ico">◆</span>Sac</button>
+  <button data-tab="agenda"><span class="ico">≡</span>Agenda</button>
+  <button data-tab="equipe"><span class="ico">♥</span>Équipe</button>
+</nav>
+
+<div id="sheet-root"></div>
+<div id="toast" class="toast" role="status" hidden></div>
+
+<script src="js/sprites.js"></script>
+<script src="js/seed.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
