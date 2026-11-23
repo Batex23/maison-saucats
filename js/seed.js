@@ -181,3 +181,12 @@ SEED_TASKS.push(
 const SEED_PATCHES = [
   { key: "2026-11-23-sdb-faite", id: "e-sdb", set: { lastDone: "2026-11-23" }, log: { who: "lui", date: "2026-11-23" } }
 ];
+
+/* Ajouts du 23/11/2026 au soir */
+SEED_TASKS.push(
+  { id: "e-terrasse-balai", place: "terrasse", zone: "Terrasse", title: "Passer le balai sur la terrasse", kind: "entretien", duration: 20, urgency: 2, importance: 2, outdoor: true, everyDays: 7, lastDone: "2026-11-23" },
+  { id: "e-terrasse-vider", place: "terrasse", zone: "Terrasse", title: "Débarrasser la terrasse (avant le brossage)", kind: "entretien", duration: 30, urgency: 2, importance: 2, outdoor: true, everyDays: 60, lastDone: "2026-11-01", notes: "Sortir tout le matériel pour pouvoir brosser. À faire juste avant « Brosser la terrasse au produit »." },
+  { id: "e-terrasse-brosse", place: "terrasse", zone: "Terrasse", title: "Brosser la terrasse au produit", kind: "entretien", duration: 90, urgency: 2, importance: 2, outdoor: true, everyDays: 60, lastDone: "2026-11-01", notes: "Après avoir débarrassé la terrasse. Remettre le matériel ensuite." },
+  { id: "e-baloo-bain", place: "terrasse", zone: "Terrasse", title: "Laver Baloo", kind: "entretien", duration: 30, urgency: 2, importance: 2, outdoor: true, everyDays: 7, lastDone: "2026-11-20" }
+);
+SEED_PATCHES.push({ key: "2026-11-23-balai-terrasse", id: "e-terrasse-balai", set: { lastDone: "2026-11-23" }, log: { who: "lui", date: "2026-11-23" } });

@@ -108,7 +108,7 @@ function patchTask(id, patch) { putTask({ ...S.data.tasks[id], ...patch }); }
 function completeTask(id) {
   const t = S.data.tasks[id]; if (!t) return;
   const before = { ...t }, who = S.dev.me || "lui", lid = uid();
-  S.data.log[lid] = { id: lid, taskId: id, title: t.title, who, date: todayISO(), minutes: +t.duration || 0, place: placeOf(t), kind: t.kind };
+  S.data.log[lid] = { id: lid, taskId: id, title: t.title, who, date: todayISO(), minutes: +t.duration || 0, place: placeOf(t), kind: t.kind, pts: pointsFor(t.duration, t.kind) };
   let extra = "";
   if (t.kind === "entretien") patchTask(id, { lastDone: todayISO() });
   else {
@@ -118,6 +118,14 @@ function completeTask(id) {
   }
   commit();
   celebrate(t, extra, () => { S.data.log[lid] = { ...S.data.log[lid], deleted: true }; putTask({ ...before }); commit("Annulé"); });
+}
+/* Points : plus une tâche est longue, plus elle rapporte ; les projets et réparations valent 1,5 fois plus que l'entretien. */
+const pointsFor = (minutes, kind) => Math.round((5 + Math.round((+minutes || 15) / 6)) * (kind === "entretien" ? 1 : 1.5));
+const logPts = l => l.pts ?? pointsFor(l.minutes ?? (S.data.tasks[l.taskId] || {}).duration, l.kind ?? (S.data.tasks[l.taskId] || {}).kind);
+function yearPoints(year) {
+  const r = { lui: 0, elodie: 0 };
+  logList().filter(l => l.date.startsWith(String(year))).forEach(l => { if (l.who === "elodie") r.elodie += logPts(l); else r.lui += logPts(l); });
+  return r;
 }
 const logList = () => Object.values(S.data.log || {}).filter(l => !l.deleted && l.date);
 function weekStats(offset = 0) {
@@ -142,6 +150,9 @@ function celebrate(t, extra, undo) {
   if (w.n === goal) line = `Objectif de la semaine atteint : ${goal} tâches !`;
   else if (w.n < goal) line += ` · encore ${goal - w.n} pour l'objectif`;
   if (t.kind === "entretien" && h.dates.length > 1) line += ` · ${h.last30} fois en 30 j` + (h.avg ? `, tous les ${h.avg} j en moyenne` : "");
+  const yp = yearPoints(new Date().getFullYear()), me = S.dev.me || "lui", other = me === "lui" ? "elodie" : "lui";
+  const gap = yp[me] - yp[other];
+  line = `+${pointsFor(t.duration, t.kind)} points · ${playerName("lui")} ${yp.lui} – ${yp.elodie} ${playerName("elodie")}` + (gap > 0 ? " · tu mènes" : gap < 0 ? ` · encore ${-gap} pour passer devant` : " · égalité") + " · " + line;
   toast(`Bien joué ! « ${t.title} » est fait.`, { sub: line + (extra ? " ·" + extra : ""), action: "Annuler", onAction: undo, big: true, ms: 5500 });
 }
 
@@ -296,7 +307,7 @@ function taskRow(t, o = {}) {
   return `<div class="task s-${st} ${a.late ? "late" : ""}">
     <div class="bar"></div>
     <div class="body" data-act="edit" data-id="${t.id}" role="button" tabindex="0">
-      <div class="t">${esc(t.title)}${who}</div>
+      <div class="t">${esc(t.title)}${who}${st !== "done" && st !== "ok" ? `<span class="ptag">+${pointsFor(t.duration, t.kind)}</span>` : ""}</div>
       <div class="meta">${esc(meta)}</div>
       ${w ? `<div class="why ${wc}">${esc(w)}</div>` : ""}
     </div>
@@ -330,7 +341,7 @@ function viewMaison() {
     <div class="rooms">${listIds.filter(k => placeStats(k).count).map(k => `<button class="roomrow" data-room="${k}">
       <span class="rn">${esc(PLACES[k].name)}</span><span class="pills">${pills(placeStats(k))}</span><span class="chev">›</span></button>`).join("") || `<div class="empty">Rien à faire à ce niveau.</div>`}</div>
     ${listIds.some(k => !placeStats(k).count) ? `<div class="rooms-empty">Rien à faire : ${listIds.filter(k => !placeStats(k).count).map(k => `<button data-room="${k}">${esc(PLACES[k].name)}</button>`).join(", ")}</div>` : ""}</section>`;
-  return `
+  return `${syncOn() ? "" : `<button class="unsynced" data-tab-go="nous">Vos deux téléphones ne sont pas encore reliés : chacun voit seulement ses tâches. <b>Relier</b></button>`}
   <section class="card sec">
     <div class="sec-head"><h2>Aujourd'hui</h2><span class="hint">${S.dev.me ? "pour " + esc(playerName(S.dev.me)) : ""}</span></div>
     <div class="chips">${chip("time", 15, "15 min")}${chip("time", 30, "30 min")}${chip("time", 60, "1 h")}${chip("time", 120, "2 h")}${chip("time", 240, "Demi-journée")}${chip("time", 420, "Journée")}</div>
@@ -447,6 +458,20 @@ function viewBilan() {
   const pct = Math.min(100, Math.round(w.n / goal * 100));
   const per = k => w.list.filter(l => l.who === k).length;
   const diff = w.n - prev.n;
+  // duel de l'année
+  const Y = new Date().getFullYear(), yp = yearPoints(Y), tot = yp.lui + yp.elodie;
+  const lead = yp.lui === yp.elodie ? "" : yp.lui > yp.elodie ? "lui" : "elodie";
+  const wp = k => w.list.filter(l => (k === "elodie") === (l.who === "elodie")).reduce((s, l) => s + logPts(l), 0);
+  const py = yearPoints(Y - 1), pyWin = py.lui + py.elodie ? (py.lui === py.elodie ? "Égalité" : playerName(py.lui > py.elodie ? "lui" : "elodie")) : "";
+  const daysLeft = daysBetween(todayISO(), Y + "-12-31");
+  const side = k => `<div class="duelist ${lead === k ? "lead" : ""}"><div class="pic">${mini(k, 3)}</div><div class="pn">${esc(playerName(k))}</div>
+    <div class="pts num">${yp[k]}</div><div class="ps">points · ${wp(k)} cette semaine</div>${lead === k ? `<span class="crown">En tête</span>` : ""}</div>`;
+  const duel = `<section class="card sec duel">
+    <div class="sec-head"><h2>Le duel ${Y}</h2><span class="hint">${daysLeft > 0 ? "verdict dans " + daysLeft + " j" : "verdict ce soir"}</span></div>
+    <div class="duelists">${side("lui")}<div class="vs">VS</div>${side("elodie")}</div>
+    <div class="split"><i style="width:${tot ? Math.round(yp.lui / tot * 100) : 50}%"></i></div>
+    <p class="muted" style="margin:0;font-size:.84rem">Chaque tâche cochée rapporte des points à celui qui la coche : plus elle est longue, plus elle rapporte, et les projets valent 1,5 fois l'entretien. Le 31 décembre, celui qui a le plus de points gagne l'année.${pyWin ? ` Gagnant ${Y - 1} : <b>${esc(pyWin)}</b>.` : ""}</p>
+  </section>`;
   // calendrier : 12 semaines × 7 jours
   const counts = {}; logList().forEach(l => counts[l.date] = (counts[l.date] || 0) + 1);
   const start = mondayOf(new Date()); start.setDate(start.getDate() - 7 * 11);
@@ -470,7 +495,7 @@ function viewBilan() {
   // historique
   const byDay = {}; logList().sort((a, b) => b.date.localeCompare(a.date)).slice(0, 40).forEach(l => (byDay[l.date] = byDay[l.date] || []).push(l));
   const dayName = d => d === todayISO() ? "Aujourd'hui" : daysBetween(d, todayISO()) === 1 ? "Hier" : new Date(d + "T12:00").toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
-  return `
+  return `${duel}
   <section class="card sec">
     <div class="sec-head"><h2>Cette semaine</h2><span class="hint">${fmtDate(w.start)} – ${fmtDate(w.end)}</span></div>
     <div class="score"><div class="big num">${w.n}</div><div><b>tâche${w.n > 1 ? "s" : ""} faite${w.n > 1 ? "s" : ""}</b><span>${fmtMin(w.min)} de travail${diff > 0 ? ` · ${diff} de plus que la semaine dernière` : prev.n ? ` · semaine dernière : ${prev.n}` : ""}</span></div></div>
@@ -492,7 +517,7 @@ function viewBilan() {
   <section class="sec">
     <h2>Historique</h2>
     ${Object.keys(byDay).length ? Object.entries(byDay).map(([d, ls]) => `<div class="card sec" style="gap:2px"><h3 style="text-transform:capitalize">${esc(dayName(d))}</h3>
-      ${ls.map(l => `<div class="hist">${mini(l.who === "elodie" ? "elodie" : "lui", 1)}<span>${esc(l.title)}</span><button class="linkbtn" data-act="unlog" data-id="${l.id}" aria-label="Retirer de l'historique">Retirer</button></div>`).join("")}</div>`).join("")
+      ${ls.map(l => `<div class="hist">${mini(l.who === "elodie" ? "elodie" : "lui", 1)}<span>${esc(l.title)} <span class="ptag">+${logPts(l)}</span></span><button class="linkbtn" data-act="unlog" data-id="${l.id}" aria-label="Retirer de l'historique">Retirer</button></div>`).join("")}</div>`).join("")
       : `<div class="empty">Rien encore. Coche une tâche faite pour la voir ici.</div>`}
   </section>
   <section class="card sec"><h2>Objectif de la semaine</h2>
@@ -521,11 +546,16 @@ function viewNous() {
     <div class="field"><label for="guide-txt">Consignes</label><textarea id="guide-txt" placeholder="Ex : après une garde de 24 h je suis fatigué. On évite les gros achats avant la naissance.">${esc(st.guide || "")}</textarea></div>
     <button class="btn small" data-act="save-guide" style="align-self:flex-start">Enregistrer</button></section>
   <section class="card sec"><h2>Synchro entre vos téléphones</h2>
-    <p class="muted" style="margin:0;font-size:.9rem">Les tâches sont gardées dans un dépôt GitHub <b>privé</b>. Chaque téléphone a besoin d'un jeton limité à ce dépôt. Sans synchro, tout reste sur ce téléphone.</p>
+    <p class="muted" style="margin:0;font-size:.9rem">Pour que ${esc(playerName("lui"))} et ${esc(playerName("elodie"))} voient les mêmes tâches et ce que l'autre a fait, les deux téléphones partagent un fichier dans un dépôt GitHub <b>privé</b>. Sans synchro, chaque téléphone garde ses tâches pour lui.</p>
+    ${syncOn() ? "" : `<ol class="steps">
+      <li>Sur github.com, crée un dépôt <b>privé</b> nommé <code>maison-saucats-data</code>.</li>
+      <li>Crée un jeton : Settings → Developer settings → Fine-grained tokens → Generate. Accès : seulement ce dépôt. Permission : Contents en lecture et écriture.</li>
+      <li>Colle le jeton ci-dessous et touche Connecter.</li>
+      <li>Touche « Lien pour l'autre téléphone » et envoie-le à l'autre : il s'ouvre et se connecte tout seul.</li></ol>`}
     <div class="grid2"><div class="field"><label for="sy-owner">Compte</label><input id="sy-owner" type="text" value="${esc(sy.owner)}" autocapitalize="off"></div>
       <div class="field"><label for="sy-repo">Dépôt privé</label><input id="sy-repo" type="text" value="${esc(sy.repo)}" autocapitalize="off"></div></div>
     <div class="field"><label for="sy-token">Jeton GitHub (reste sur ce téléphone)</label><input id="sy-token" type="password" value="${esc(sy.token)}" autocomplete="off" placeholder="github_pat_…"></div>
-    <div class="row"><button class="btn small primary" data-act="sync-save">Connecter</button><button class="btn small" data-act="sync-now">Synchroniser</button></div>
+    <div class="row"><button class="btn small primary" data-act="sync-save">Connecter</button><button class="btn small" data-act="sync-now">Synchroniser</button>${syncOn() ? `<button class="btn small" data-act="sync-share">Lien pour l'autre téléphone</button>` : ""}</div>
     <div class="muted" style="font-size:.88rem;display:flex;gap:6px;align-items:center"><span class="dot ${S.sync.state === "ok" ? "ok" : S.sync.state === "err" ? "err" : ""}"></span>${esc(S.sync.msg)}</div></section>
   <section class="card sec"><h2>Lien de Baloo</h2>
     <p class="muted" style="margin:0;font-size:.9rem">La conversation qui s'ouvre quand on touche « Parler à Baloo ». À changer seulement si on repart d'une nouvelle conversation.</p>
@@ -927,6 +957,7 @@ function go(t) { if (!TABS.includes(t)) t = "maison"; S.tab = t; if (location.ha
 
 document.addEventListener("click", e => {
   const tab = e.target.closest("nav.tabs button"); if (tab) return go(tab.dataset.tab);
+  const tg = e.target.closest("[data-tab-go]"); if (tg) return go(tg.dataset.tabGo);
   if (e.target.dataset && e.target.dataset.close) return closeSheet();
   const inSheet = e.target.closest(".sheet");
   const room = !inSheet && e.target.closest("[data-place],[data-room]");
@@ -951,6 +982,11 @@ document.addEventListener("click", e => {
   else if (act === "save-guide") { S.data.settings = { ...S.data.settings, guide: $("#guide-txt").value.trim(), updatedAt: Date.now() }; commit("Consignes enregistrées"); }
   else if (act === "sync-save") { S.dev.sync = { ...S.dev.sync, owner: $("#sy-owner").value.trim(), repo: $("#sy-repo").value.trim(), token: $("#sy-token").value.trim() }; saveDev(); doSync(); }
   else if (act === "sync-now") doSync();
+  else if (act === "sync-share") {
+    const link = location.origin + location.pathname + "#join=" + btoa(unescape(encodeURIComponent(JSON.stringify(S.dev.sync))));
+    const done = ok => toast(ok ? "Lien copié" : "Copie impossible : garde le lien affiché", { sub: "Il contient la clé du dépôt : envoie-le seulement à l'autre téléphone, en message privé.", ms: 6000 });
+    navigator.clipboard?.writeText(link).then(() => done(true), () => { prompt("Lien à envoyer :", link); done(false); }) ?? (prompt("Lien à envoyer :", link), done(false));
+  }
   else if (act === "export") {
     const u = URL.createObjectURL(new Blob([JSON.stringify(JSON.parse(canon(S.data)), null, 1)], { type: "application/json" }));
     const l = document.createElement("a"); l.href = u; l.download = "maison-saucats-" + todayISO() + ".json"; l.click(); setTimeout(() => URL.revokeObjectURL(u), 2000);
@@ -984,7 +1020,13 @@ function setBought(key, have) {
 window.addEventListener("hashchange", () => { const h = location.hash.slice(1); if (TABS.includes(h) && h !== S.tab) { S.tab = h; render(false); } });
 
 /* ---------------- démarrage ---------------- */
-{ const h = location.hash.slice(1); if (TABS.includes(h)) S.tab = h; }
+{ const h = location.hash.slice(1); if (TABS.includes(h)) S.tab = h;
+  if (h.startsWith("join=")) {
+    // lien envoyé par l'autre téléphone : on se branche sur le même dépôt
+    try { const j = JSON.parse(decodeURIComponent(escape(atob(h.slice(5))))); if (j.token && j.owner && j.repo) { S.dev.sync = { ...S.dev.sync, ...j }; saveDev(); setTimeout(() => toast("Téléphone relié : récupération des tâches…"), 300); } } catch (e) { }
+    history.replaceState(null, "", location.pathname + "#maison"); S.tab = "maison";
+  }
+}
 render(false);
 if (syncOn()) doSync();
 setTimeout(remindNow, 1500);
