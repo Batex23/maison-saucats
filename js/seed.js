@@ -196,3 +196,7 @@ SEED_TASKS.push(
   P("p-ch2-porte", "ch2", "Peindre la porte de la chambre 2", { duration: 180, materials: [{ name: "Peinture porte", cost: 25, have: false }] }),
   P("p-ch2-tiroirs", "ch2", "Installer les tiroirs dans le meuble et le placard", { duration: 90, materials: [{ name: "Tiroirs IKEA (meuble et placard)", cost: 80, have: false }], notes: "Uniquement les tiroirs, à acheter chez IKEA." })
 );
+
+SEED_TASKS.push(
+  { id: "e-machine-laver", place: "buanderie", zone: "Buanderie", title: "Laver la machine à laver", kind: "entretien", duration: 30, urgency: 2, importance: 2, outdoor: false, everyDays: 30, lastDone: "2026-10-24", notes: "Cycle à vide chaud avec produit d'entretien, nettoyer le joint du hublot et le bac à lessive, vider le filtre." }
+);
