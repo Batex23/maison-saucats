@@ -170,3 +170,8 @@ SEED_TASKS.push(
   P("d-temp", "maison", "Domotique : gestion de la température", { project: "Domotique", duration: 480, urgency: 1, importance: 1, deps: ["d-projet"] }),
   P("d-monitoring", "maison", "Domotique : suivi et monitoring de la maison", { project: "Domotique", duration: 480, urgency: 1, importance: 1, deps: ["d-projet"] })
 );
+
+SEED_TASKS.push(
+  P("p-sdb-rangement-choix", "sdb", "Choisir les rangements douche et bain (shampoing, gel douche…)", { project: "Salle de bain du haut", duration: 45, notes: "Étagère de douche, niche, panier suspendu ou meuble : à voir selon la place autour de la baignoire." }),
+  P("p-sdb-rangement", "sdb", "Installer les rangements de la salle de bain", { project: "Salle de bain du haut", duration: 90, deps: ["p-sdb-rangement-choix", "p-joints"], materials: [{ name: "Rangements salle de bain", cost: 40, have: false }] })
+);

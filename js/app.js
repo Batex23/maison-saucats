@@ -29,7 +29,7 @@ const isOutdoor = t => PLACES[placeOf(t)].level === "ext" || !!PLACES[placeOf(t)
 function freshData() {
   const tasks = {};
   SEED_TASKS.forEach(t => tasks[t.id] = { deps: [], materials: [], status: "todo", notes: "", assignee: "", ...t, updatedAt: 0 });
-  return { v: 5, tasks, log: {}, settings: { weeklyHours: 4, guide: "", players: { lui: { name: "Baptiste" }, elodie: { name: "Elodie" } }, updatedAt: 0 } };
+  return { v: 6, tasks, log: {}, settings: { weeklyHours: 4, guide: "", players: { lui: { name: "Baptiste" }, elodie: { name: "Elodie" } }, updatedAt: 0 } };
 }
 function migrate(d) {
   if (!d || !d.tasks) return freshData();
@@ -66,6 +66,10 @@ function migrate(d) {
     SEED_TASKS.forEach(s => { if (!d.tasks[s.id]) d.tasks[s.id] = { deps: [], materials: [], status: "todo", notes: "", assignee: "", ...s, updatedAt: Date.now() }; });
     if (d.tasks["e-aspi"]) Object.assign(d.tasks["e-aspi"], { everyDays: 1, title: "Passer l'aspirateur", updatedAt: Date.now() });
     d.v = 5;
+  }
+  if (d.v < 6) {
+    SEED_TASKS.forEach(s => { if (!d.tasks[s.id]) d.tasks[s.id] = { deps: [], materials: [], status: "todo", notes: "", assignee: "", ...s, updatedAt: Date.now() }; });
+    d.v = 6;
   }
   return d;
 }
