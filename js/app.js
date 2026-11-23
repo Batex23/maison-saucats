@@ -4,6 +4,9 @@
 
 const KINDS = { projet: "Projet", reparation: "Réparation", entretien: "Entretien" };
 const STATE_LABEL = { ready: "Faisable", buy: "Il manque du matériel", blocked: "Après une autre tâche", wait: "Plus tard", done: "Terminée", due: "À faire", ok: "À jour" };
+const DAYS = ["dimanche", "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi"];
+const hasDay = t => t.weekday !== undefined && t.weekday !== null && t.weekday !== "";
+const rhythm = t => hasDay(t) ? "chaque " + DAYS[+t.weekday] + (t.evening ? " soir" : "") : (+t.everyDays === 1 ? "tous les jours" : "tous les " + (t.everyDays || 7) + " j");
 const ZONE_TO_PLACE = { Maison: "maison", Jardin: "jardin", Piscine: "piscine", Abri: "abri", Potager: "potager", Poulailler: "poulailler", Puits: "puits", "Garage / atelier": "abri" };
 
 /* ---------------- utilitaires ---------------- */
@@ -26,7 +29,7 @@ const isOutdoor = t => PLACES[placeOf(t)].level === "ext" || !!PLACES[placeOf(t)
 function freshData() {
   const tasks = {};
   SEED_TASKS.forEach(t => tasks[t.id] = { deps: [], materials: [], status: "todo", notes: "", assignee: "", ...t, updatedAt: 0 });
-  return { v: 4, tasks, log: {}, settings: { weeklyHours: 4, guide: "", players: { lui: { name: "Baptiste" }, elodie: { name: "Elodie" } }, updatedAt: 0 } };
+  return { v: 5, tasks, log: {}, settings: { weeklyHours: 4, guide: "", players: { lui: { name: "Baptiste" }, elodie: { name: "Elodie" } }, updatedAt: 0 } };
 }
 function migrate(d) {
   if (!d || !d.tasks) return freshData();
@@ -58,6 +61,11 @@ function migrate(d) {
       else if (OLD[s.id] && cur.title === OLD[s.id] && cur.status !== "done") d.tasks[s.id] = { ...cur, ...s, updatedAt: Date.now() };
     });
     d.v = 4;
+  }
+  if (d.v < 5) {
+    SEED_TASKS.forEach(s => { if (!d.tasks[s.id]) d.tasks[s.id] = { deps: [], materials: [], status: "todo", notes: "", assignee: "", ...s, updatedAt: Date.now() }; });
+    if (d.tasks["e-aspi"]) Object.assign(d.tasks["e-aspi"], { everyDays: 1, title: "Passer l'aspirateur", updatedAt: Date.now() });
+    d.v = 5;
   }
   return d;
 }
@@ -107,10 +115,22 @@ function analyze() {
   T.forEach(t => {
     const a = {}, dur = +t.duration || 0;
     if (t.kind === "entretien") {
-      const every = +t.everyDays || 7, since = t.lastDone ? daysBetween(t.lastDone, today) : every;
-      a.dueIn = every - since; a.state = a.dueIn <= 0 ? "due" : "ok"; a.overdue = Math.max(0, -a.dueIn);
-      a.score = 6 + Math.min(8, (since / every - 1) * 4) + (+t.urgency || 2);
-      a.late = a.overdue > 0;
+      const every = hasDay(t) ? 7 : (+t.everyDays || 7);
+      let since = t.lastDone ? daysBetween(t.lastDone, today) : every;
+      if (hasDay(t)) {
+        // dernière occurrence de ce jour (aujourd'hui compris) : due si pas faite depuis
+        const back = (new Date().getDay() - +t.weekday + 7) % 7;
+        const last = new Date(); last.setDate(last.getDate() - back);
+        const lastISO = iso8(last);
+        const doneSince = t.lastDone && t.lastDone >= lastISO;
+        a.dueIn = doneSince ? (back === 0 ? 7 : 7 - back) : 0;
+        a.overdue = doneSince ? 0 : back;
+        a.today = back === 0 && !doneSince;
+        since = doneSince ? 0 : every;
+      } else { a.dueIn = every - since; a.overdue = Math.max(0, -a.dueIn); }
+      a.state = a.dueIn <= 0 ? "due" : "ok";
+      a.score = 6 + Math.min(8, (since / every - 1) * 4) + (+t.urgency || 2) + (a.today ? 10 : 0);
+      a.late = a.overdue > 0 || !!a.today;
     } else {
       a.blockers = (t.deps || []).filter(d => byId[d] && !byId[d].deleted && byId[d].status !== "done");
       a.missing = (t.materials || []).filter(m => !m.have && m.name);
@@ -145,6 +165,7 @@ function localPlan() {
   const quests = tasksList().filter(t => t._.state === "ready" && ok(t)).sort((a, b) => b._.score - a._.score);
   const pool = []; // on alterne : une corvée, puis une tâche qui fait avancer un projet
   while (chores.length || quests.length) { if (chores.length) pool.push(chores.shift()); if (quests.length) pool.push(quests.shift()); }
+  tasksList().filter(t => hasDay(t) && t._.state === "due").forEach(t => { out.push({ t, min: +t.duration || 5 }); const i = pool.indexOf(t); if (i >= 0) pool.splice(i, 1); });
   for (const t of pool) { const d = +t.duration || 30; if (d <= left) { out.push({ t, min: d }); left -= d; } }
   if (!out.length && c.energy !== "tired") { const t = tasksList().filter(t => t._.state === "ready" && whereOk(t) && mine(t)).sort((a, b) => b._.score - a._.score)[0]; if (t) out.push({ t, min: left, partial: true }); }
   return out;
@@ -154,7 +175,7 @@ function localPlan() {
 function mondayOf(d) { const x = new Date(d); x.setDate(x.getDate() - (x.getDay() + 6) % 7); x.setHours(12, 0, 0, 0); return x; }
 function schedule(weeks = 12) {
   const start = mondayOf(new Date()), all = tasksList();
-  const maint = Math.round(all.filter(t => t.kind === "entretien").reduce((s, t) => s + (+t.duration || 0) * 7 / (+t.everyDays || 7), 0));
+  const maint = Math.round(all.filter(t => t.kind === "entretien").reduce((s, t) => s + (+t.duration || 0) * 7 / (hasDay(t) ? 7 : (+t.everyDays || 7)), 0));
   const capW = Math.max(30, (+S.data.settings.weeklyHours || 4) * 60);
   const todo = all.filter(t => t.kind !== "entretien" && t.status !== "done");
   const rem = Object.fromEntries(todo.map(t => [t.id, Math.max(15, +t.duration || 60)]));
@@ -215,6 +236,7 @@ function mini(name, scale = 2) { return `<span class="mini" data-sprite="${name}
 function hydrateSprites(root = document) { root.querySelectorAll("[data-sprite]").forEach(el => { if (!el.firstChild) el.appendChild(spriteCanvas(el.dataset.sprite, +el.dataset.scale || 2)); }); }
 function whyLine(t) {
   const a = t._;
+  if (t.kind === "entretien" && hasDay(t)) return a.state === "due" ? (a.today ? ["late", t.evening ? "Ce soir" : "Aujourd'hui"] : ["late", "Pas fait " + DAYS[+t.weekday]]) : ["", "Prochaine fois " + DAYS[+t.weekday]];
   if (t.kind === "entretien") return a.state === "due" ? (a.overdue ? ["late", "En retard de " + a.overdue + " j"] : ["", "Prévu aujourd'hui"]) : ["", a.dueIn === 1 ? "Revient demain" : "Revient dans " + a.dueIn + " j"];
   if (a.state === "blocked") return ["blocked", "Après : " + a.blockers.map(id => S.data.tasks[id].title).join(", ")];
   if (a.state === "buy") return ["buy", "Il manque : " + a.missing.map(m => m.name + (m.borrow ? " (à emprunter)" : "")).join(", ") + (a.missingCost ? " · " + fmtEur(a.missingCost) : "")];
@@ -230,7 +252,7 @@ function taskRow(t, o = {}) {
   const a = t._, st = a.state, canDo = st === "ready" || st === "due" || (o.anyDo && st !== "done" && st !== "ok");
   const [wc, w] = whyLine(t);
   const meta = [o.min ? fmtMin(o.min) + (o.partial ? " pour commencer" : "") : fmtMin(t.duration), o.noPlace ? "" : placeName(placeOf(t)),
-    t.kind === "entretien" ? "tous les " + (t.everyDays || 7) + " j" : (a.cost ? fmtEur(a.cost) : "")].filter(Boolean).join(" · ");
+    t.kind === "entretien" ? rhythm(t) : (a.cost ? fmtEur(a.cost) : "")].filter(Boolean).join(" · ");
   const who = t.assignee === "lui" || t.assignee === "elodie" ? `<span class="who">${mini(t.assignee, 1)}</span>` : t.assignee === "tous" ? `<span class="who">${mini("lui", 1)}${mini("elodie", 1)}</span>` : "";
   return `<div class="task s-${st} ${a.late ? "late" : ""}">
     <div class="bar"></div>
@@ -404,6 +426,9 @@ function viewNous() {
     <div class="field"><label for="sy-token">Jeton GitHub (reste sur ce téléphone)</label><input id="sy-token" type="password" value="${esc(sy.token)}" autocomplete="off" placeholder="github_pat_…"></div>
     <div class="row"><button class="btn small primary" data-act="sync-save">Connecter</button><button class="btn small" data-act="sync-now">Synchroniser</button></div>
     <div class="muted" style="font-size:.88rem;display:flex;gap:6px;align-items:center"><span class="dot ${S.sync.state === "ok" ? "ok" : S.sync.state === "err" ? "err" : ""}"></span>${esc(S.sync.msg)}</div></section>
+  <section class="card sec"><h2>Rappels</h2>
+    <p class="muted" style="margin:0;font-size:.9rem">Les tâches à jour fixe (poubelles…) s'affichent en tête d'« Aujourd'hui » le bon jour. Pour être prévenu même appli fermée, ajoute-les à ton agenda : le téléphone sonnera chaque semaine.</p>
+    <div class="row"><button class="btn small primary" data-act="ics">Ajouter à mon agenda</button>${"Notification" in window && Notification.permission !== "granted" ? `<button class="btn small" data-act="notif">Notifications dans l'appli</button>` : ""}</div></section>
   <section class="card sec"><h2>Sauvegarde</h2>
     <div class="row"><button class="btn small" data-act="export">Exporter</button><button class="btn small" data-act="import">Importer</button><input type="file" id="import-file" accept="application/json" hidden></div></section>`;
 }
@@ -454,7 +479,8 @@ function openEditor(id) {
     <div class="grid3"><div class="field"><label for="f-duration">Durée (min)</label><input id="f-duration" type="number" min="5" step="5" value="${esc(t.duration || 60)}"></div>
       <div class="field"><label for="f-urgency">Urgence</label>${sel("urgency", lvl, t.urgency || 2)}</div>
       <div class="field"><label for="f-importance">Importance</label>${sel("importance", lvl, t.importance || 2)}</div></div>
-    <div class="grid2" id="wrap-ent"><div class="field"><label for="f-every">Tous les (jours)</label><input id="f-every" type="number" min="1" value="${esc(t.everyDays || 7)}"></div>
+    <div id="wrap-ent" class="sec"><div class="grid2"><div class="field"><label for="f-weekday">Rythme</label><select id="f-weekday"><option value="">Tous les N jours</option>${DAYS.map((d, i) => `<option value="${i}" ${hasDay(t) && +t.weekday === i ? "selected" : ""}>Chaque ${d}</option>`).join("")}</select></div>
+      <div class="field" id="wrap-every"><label for="f-every">Tous les (jours)</label><input id="f-every" type="number" min="1" value="${esc(t.everyDays || 7)}"></div></div>
       <div class="field"><label for="f-last">Fait la dernière fois</label><input id="f-last" type="date" value="${esc(t.lastDone || "")}"></div></div>
     <div id="wrap-proj" class="sec" style="gap:14px">
       <div class="grid2"><div class="field"><label for="f-status">Statut</label>${sel("status", [["todo", "À faire"], ["doing", "Commencée"], ["done", "Terminée"]], t.status || "todo")}</div>
@@ -473,9 +499,9 @@ function openEditor(id) {
       <select data-m="${i}" data-f="st" aria-label="État"><option value="buy" ${!m.have && !m.borrow ? "selected" : ""}>À acheter</option><option value="borrow" ${!m.have && m.borrow ? "selected" : ""}>À emprunter</option><option value="have" ${m.have ? "selected" : ""}>Je l'ai</option></select>
       <button class="btn small" data-act="mat-del" data-i="${i}" aria-label="Retirer">✕</button></div>`).join("") : `<div class="muted">Rien à prévoir.</div>`;
   };
-  const toggle = () => { const ent = $("#f-kind").value === "entretien"; $("#wrap-ent").hidden = !ent; $("#wrap-proj").hidden = ent; $("#wrap-project").hidden = ent; };
+  const toggle = () => { const ent = $("#f-kind").value === "entretien"; $("#wrap-ent").hidden = !ent; $("#wrap-proj").hidden = ent; $("#wrap-project").hidden = ent; $("#wrap-every").hidden = $("#f-weekday").value !== ""; };
   drawMats(); toggle();
-  $("#f-kind").addEventListener("change", toggle);
+  $("#f-kind").addEventListener("change", toggle); $("#f-weekday").addEventListener("change", toggle);
   const onField = e => { const i = e.target.dataset.m; if (i === undefined) return; const f = e.target.dataset.f; if (f === "st") { mats[i].have = e.target.value === "have"; mats[i].borrow = e.target.value === "borrow"; } else mats[i][f] = f === "cost" ? (e.target.value === "" ? "" : +e.target.value) : e.target.value; };
   sh.addEventListener("input", onField); sh.addEventListener("change", onField);
   sh.addEventListener("click", e => {
@@ -489,7 +515,7 @@ function openEditor(id) {
       const body = { ...(id ? S.data.tasks[id] : { id: uid(), createdAt: todayISO() }), title, kind, place, zone: placeName(place), assignee: $("#f-assignee").value,
         duration: +$("#f-duration").value || 30, urgency: +$("#f-urgency").value, importance: +$("#f-importance").value, outdoor: PLACES[place].level === "ext", notes: $("#f-notes").value.trim() };
       delete body._;
-      if (kind === "entretien") Object.assign(body, { everyDays: +$("#f-every").value || 7, lastDone: $("#f-last").value || null, project: "", deps: [], materials: [], status: "todo" });
+      if (kind === "entretien") Object.assign(body, { weekday: $("#f-weekday").value === "" ? null : +$("#f-weekday").value, everyDays: $("#f-weekday").value === "" ? (+$("#f-every").value || 7) : 7, lastDone: $("#f-last").value || null, project: "", deps: [], materials: [], status: "todo" });
       else Object.assign(body, { project: $("#f-project").value.trim(), status: $("#f-status").value, waitUntil: $("#f-wait").value || "",
         deps: [...sh.querySelectorAll(".deplist input:checked")].map(x => x.value),
         materials: mats.filter(m => m.name && m.name.trim()).map(m => ({ name: m.name.trim(), cost: +m.cost || 0, have: !!m.have, borrow: !!m.borrow })) });
@@ -525,7 +551,10 @@ function openWizard(place) {
       body(choices([["projet", "Un projet, une construction"], ["reparation", "Une réparation"], ["entretien", "Une corvée qui revient"]], "wz-kind", true) + back);
     } else if (s === "every") {
       say("Elle revient tous les combien ?");
-      body(choices([[1, "Tous les jours"], [2, "Tous les 2 jours"], [7, "Chaque semaine"], [14, "Toutes les 2 semaines"], [30, "Chaque mois"], [90, "Chaque trimestre"], [180, "Deux fois par an"], [365, "Une fois par an"]], "wz-every") + back);
+      body(choices([[1, "Tous les jours"], [2, "Tous les 2 jours"], [7, "Chaque semaine"], [14, "Toutes les 2 semaines"], [30, "Chaque mois"], [90, "Chaque trimestre"], [180, "Deux fois par an"], [365, "Une fois par an"], ["day", "Un jour précis de la semaine"]], "wz-every") + back);
+    } else if (s === "weekday") {
+      say("Quel jour ?");
+      body(choices([1, 2, 3, 4, 5, 6, 0].map(i => [i, "Chaque " + DAYS[i]]), "wz-weekday") + back);
     } else if (s === "duration") {
       say("Ça va te prendre combien de temps, à peu près ?");
       body(choices([[15, "Un quart d'heure"], [30, "Une demi-heure"], [60, "Une heure"], [120, "Deux heures"], [240, "Une demi-journée"], [420, "Une journée"], [960, "Plusieurs jours"]], "wz-duration") + back);
@@ -566,7 +595,7 @@ function openWizard(place) {
       if (unsure.length) v += ` Vérifie si tu as ${unsure.map(m => esc(m.name)).join(", ")} : en attendant je l'ai mis à acheter.`;
       say("Récap. " + v);
       body(`<div class="card" style="background:var(--panel-2)"><div style="font-weight:700">${esc(W.title)}</div>
-        <div class="muted" style="font-size:.9rem;margin-top:3px">${esc([placeName(W.place), KINDS[W.kind], fmtMin(W.duration), W.kind === "entretien" ? "tous les " + W.everyDays + " j" : "", W.assignee === "tous" ? "Ensemble" : W.assignee ? playerName(W.assignee) : ""].filter(Boolean).join(" · "))}</div>
+        <div class="muted" style="font-size:.9rem;margin-top:3px">${esc([placeName(W.place), KINDS[W.kind], fmtMin(W.duration), W.kind === "entretien" ? rhythm(W) : "", W.assignee === "tous" ? "Ensemble" : W.assignee ? playerName(W.assignee) : ""].filter(Boolean).join(" · "))}</div>
         ${W.mats.length ? `<div style="margin-top:6px;font-size:.92rem">${W.mats.map(m => esc(m.name) + (m.have ? " ✓" : m.borrow ? " (emprunt)" : m.cost ? " (" + fmtEur(m.cost) + ")" : "")).join(" · ")}</div>` : ""}</div>
         <button class="btn primary" data-act="wz-save">Enregistrer la tâche</button>${back}`);
     }
@@ -578,7 +607,8 @@ function openWizard(place) {
     if (a === "wz-title") { const t = $("#wz-title").value.trim(); if (!t) { toast("Dis-moi ce que tu as en tête."); return; } W.title = t; go(W.place ? "kind" : "place"); }
     if (a === "wz-place") { W.place = v; go("kind"); }
     if (a === "wz-kind") { W.kind = v; go(v === "entretien" ? "every" : "duration"); }
-    if (a === "wz-every") { W.everyDays = +v; go("duration"); }
+    if (a === "wz-every") { if (v === "day") return go("weekday"); W.everyDays = +v; W.weekday = null; go("duration"); }
+    if (a === "wz-weekday") { W.weekday = +v; W.everyDays = 7; go("duration"); }
     if (a === "wz-duration") { W.duration = +v; go(W.kind === "entretien" ? "who" : "mats"); }
     if (a === "wz-mat-add") { const n = $("#wz-mat").value.trim(); if (n) { W.mats.push({ name: n }); step(); } }
     if (a === "wz-mat-done") { const n = $("#wz-mat").value.trim(); if (n) W.mats.push({ name: n }); W.matIdx = 0; go(W.mats.length ? "have" : "deps"); }
@@ -596,7 +626,7 @@ function openWizard(place) {
       const t = { id: uid(), createdAt: todayISO(), title: W.title, kind: W.kind, place: W.place, zone: placeName(W.place), project: "", duration: W.duration, urgency: W.urgency, importance: W.importance,
         outdoor: PLACES[W.place].level === "ext", assignee: W.assignee, status: "todo", notes: "", deps: ent ? [] : W.deps, waitUntil: ent ? "" : W.waitUntil,
         materials: ent ? [] : W.mats.map(m => ({ name: m.name, cost: m.cost || 0, have: !!m.have, borrow: !!m.borrow })) };
-      if (ent) Object.assign(t, { everyDays: W.everyDays, lastDone: todayISO() });
+      if (ent) Object.assign(t, { everyDays: W.everyDays, weekday: W.weekday ?? null, lastDone: todayISO() });
       putTask(t); closeSheet(); commit("Tâche ajoutée : " + W.title);
     }
   });
@@ -613,7 +643,7 @@ function stateForClaude() {
   return tasksList().filter(t => t._.state !== "done").map(t => {
     const a = t._, o = { id: t.id, titre: t.title, type: t.kind, piece: placeOf(t), minutes: +t.duration || 0, etat: STATE_LABEL[a.state] };
     if (t.assignee) o.qui = t.assignee === "tous" ? "ensemble" : playerName(t.assignee);
-    if (t.kind === "entretien") { o.tous_les_jours = t.everyDays; if (a.overdue) o.retard_jours = a.overdue; }
+    if (t.kind === "entretien") { o.rythme = rhythm(t); if (a.overdue) o.retard_jours = a.overdue; }
     else { if (a.missing.length) o.manque = a.missing.map(m => m.name + (m.cost ? " ~" + m.cost + "€" : "")); if (a.blockers.length) o.attend = a.blockers.map(b => S.data.tasks[b].title); if (t.waitUntil) o.pas_avant = t.waitUntil; if (t.project) o.projet = t.project; }
     return o;
   });
@@ -752,6 +782,32 @@ document.addEventListener("visibilitychange", () => { if (!document.hidden) doSy
 window.addEventListener("online", () => doSync());
 setInterval(() => { if (!document.hidden) doSync(); }, 90000);
 
+/* ---------------- rappels ---------------- */
+// Sans serveur, l'appli ne peut prévenir que lorsqu'elle est ouverte. Pour un rappel même appli fermée : le fichier agenda (.ics).
+function remindNow() {
+  if (!("Notification" in window) || Notification.permission !== "granted") return;
+  analyze();
+  const sent = lsGet("maison-notified", {}), today = todayISO();
+  tasksList().filter(t => hasDay(t) && t._.today && (!t.evening || new Date().getHours() >= 17)).forEach(t => {
+    const k = t.id + today; if (sent[k]) return; sent[k] = 1;
+    const body = t.notes || "C'est le jour.";
+    navigator.serviceWorker?.getRegistration().then(r => r ? r.showNotification(t.title, { body, tag: k, icon: "icons/icon-192.png" }) : new Notification(t.title, { body })).catch(() => { });
+  });
+  lsSet("maison-notified", sent);
+}
+function icsFile() {
+  const pad = n => String(n).padStart(2, "0"), BY = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"];
+  const ev = tasksList().filter(t => hasDay(t)).map(t => {
+    const d = new Date(); d.setDate(d.getDate() + ((+t.weekday - d.getDay() + 7) % 7));
+    const ds = d.getFullYear() + pad(d.getMonth() + 1) + pad(d.getDate()), h = t.evening ? "200000" : "090000", he = t.evening ? "201500" : "091500";
+    return ["BEGIN:VEVENT", "UID:" + t.id + "@maison-saucats", "DTSTAMP:" + ds + "T000000", "DTSTART;TZID=Europe/Paris:" + ds + "T" + h, "DTEND;TZID=Europe/Paris:" + ds + "T" + he,
+      "RRULE:FREQ=WEEKLY;BYDAY=" + BY[+t.weekday], "SUMMARY:" + t.title, "DESCRIPTION:" + (t.notes || ""), "BEGIN:VALARM", "ACTION:DISPLAY", "DESCRIPTION:" + t.title, "TRIGGER:PT0M", "END:VALARM", "END:VEVENT"].join("\r\n");
+  });
+  return ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Maison de Saucats//FR", ...ev, "END:VCALENDAR"].join("\r\n");
+}
+setInterval(remindNow, 10 * 60 * 1000);
+document.addEventListener("visibilitychange", () => { if (!document.hidden) remindNow(); });
+
 /* ---------------- événements ---------------- */
 function toast(msg) { const t = $("#toast"); t.textContent = msg; t.hidden = false; clearTimeout(toast._t); toast._t = setTimeout(() => t.hidden = true, 3200); }
 const TABS = ["maison", "taches", "achats", "agenda", "nous"];
@@ -787,6 +843,11 @@ document.addEventListener("click", e => {
     const l = document.createElement("a"); l.href = u; l.download = "maison-saucats-" + todayISO() + ".json"; l.click(); setTimeout(() => URL.revokeObjectURL(u), 2000);
   }
   else if (act === "import") $("#import-file").click();
+  else if (act === "notif") { if (!("Notification" in window)) return toast("Ce téléphone ne propose pas les notifications pour cette appli."); Notification.requestPermission().then(p => { toast(p === "granted" ? "Rappels activés quand l'appli est ouverte." : "Rappels refusés."); render(); remindNow(); }); }
+  else if (act === "ics") {
+    const u = URL.createObjectURL(new Blob([icsFile()], { type: "text/calendar" }));
+    const l = document.createElement("a"); l.href = u; l.download = "rappels-maison-saucats.ics"; l.click(); setTimeout(() => URL.revokeObjectURL(u), 4000);
+  }
 });
 document.addEventListener("change", e => {
   if (e.target.dataset.act === "bought" && e.target.checked) setBought(e.target.dataset.key, true);
@@ -812,4 +873,5 @@ window.addEventListener("hashchange", () => { const h = location.hash.slice(1); 
 { const h = location.hash.slice(1); if (TABS.includes(h)) S.tab = h; }
 render(false);
 if (syncOn()) doSync();
+setTimeout(remindNow, 1500);
 if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(() => { });

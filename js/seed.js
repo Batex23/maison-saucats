@@ -13,7 +13,7 @@ const SEED_TASKS = [
   { id: "t-potager-planches", place: "potager", title: "Préparer les planches (carton + broyat)", kind: "projet", zone: "Potager", project: "Potager", duration: 240, urgency: 2, importance: 3, outdoor: true, deps: ["t-potager-plan"], materials: [{ name: "Carton brun", cost: 0, have: false }, { name: "Broyat / BRF", cost: 50, have: false }], status: "todo" },
   { id: "t-irrigation", place: "puits", title: "Installer l'irrigation depuis le puits", kind: "projet", zone: "Puits", project: "Potager", duration: 240, urgency: 1, importance: 2, outdoor: true, deps: ["t-potager-planches"], materials: [{ name: "Goutte-à-goutte + programmateur", cost: 120, have: false }], status: "todo", waitUntil: "2027-03-01" },
   { id: "t-serre", place: "potager", title: "Construire la serre earthship", kind: "projet", zone: "Potager", project: "Serre earthship", duration: 1200, urgency: 1, importance: 2, outdoor: true, deps: ["t-potager-plan"], materials: [{ name: "Bottes de paille", cost: 100, have: false }, { name: "Bois de structure", cost: 400, have: false }, { name: "Polycarbonate", cost: 300, have: false }], status: "todo", waitUntil: "2027-03-01", notes: "Budget max ~1000 €. Partie serre + partie stockage." },
-  { id: "e-aspi", place: "maison", title: "Aspirer le sol (sable)", kind: "entretien", zone: "Maison", duration: 20, urgency: 2, importance: 2, outdoor: false, everyDays: 2, lastDone: "2026-11-21" },
+  { id: "e-aspi", place: "maison", title: "Passer l'aspirateur", kind: "entretien", zone: "Maison", duration: 20, urgency: 2, importance: 2, outdoor: false, everyDays: 1, lastDone: "2026-11-22" },
   { id: "e-sol", place: "maison", title: "Laver le sol", kind: "entretien", zone: "Maison", duration: 40, urgency: 2, importance: 2, outdoor: false, everyDays: 7, lastDone: "2026-11-18" },
   { id: "e-sdb", place: "sdb", title: "Nettoyer la salle de bain et le WC", kind: "entretien", zone: "Maison", duration: 30, urgency: 2, importance: 2, outdoor: false, everyDays: 7, lastDone: "2026-11-15" },
   { id: "e-vitres", place: "maison", title: "Nettoyer les vitres", kind: "entretien", zone: "Maison", duration: 60, urgency: 1, importance: 1, outdoor: false, everyDays: 30, lastDone: "2026-10-30" },
@@ -160,3 +160,13 @@ SEED_TASKS.push(
   X("e-local", "terrasse_entree", "Imaginer le local fermé vélos et mobylettes", { project: "Terrasse de l'entrée", duration: 120, urgency: 1, deps: ["e-terrasse"] })
 );
 SEED_TASKS.forEach(t => { if (!t.zone) t.zone = t.place; });
+
+/* Rappels et projets longs, ajoutés le 23/11/2026. */
+SEED_TASKS.push(
+  { id: "e-poubelle-jaune", place: "acces", zone: "Accès", title: "Sortir la poubelle jaune", kind: "entretien", duration: 5, urgency: 3, importance: 3, outdoor: true, weekday: 2, evening: true, everyDays: 7, lastDone: "2026-11-17", notes: "Collecte le mercredi matin." },
+  { id: "e-poubelle-grise", place: "acces", zone: "Accès", title: "Sortir la poubelle grise", kind: "entretien", duration: 5, urgency: 3, importance: 3, outdoor: true, weekday: 4, evening: true, everyDays: 7, lastDone: "2026-11-19", notes: "Collecte le vendredi matin." },
+  P("d-projet", "maison", "Domotique : définir le projet", { project: "Domotique", duration: 180, urgency: 1, importance: 1, notes: "Long terme. Volets électriques automatisés, gestion de la température, suivi et monitoring de la maison." }),
+  P("d-volets", "maison", "Domotique : automatiser les volets électriques", { project: "Domotique", duration: 480, urgency: 1, importance: 1, deps: ["d-projet"] }),
+  P("d-temp", "maison", "Domotique : gestion de la température", { project: "Domotique", duration: 480, urgency: 1, importance: 1, deps: ["d-projet"] }),
+  P("d-monitoring", "maison", "Domotique : suivi et monitoring de la maison", { project: "Domotique", duration: 480, urgency: 1, importance: 1, deps: ["d-projet"] })
+);
