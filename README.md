@@ -2,7 +2,7 @@
 
 Les tâches de la maison, pièce par pièce : bricolage, réparations, entretien, achats et planning, pour Baptiste et Elodie (avec Baloo comme guide).
 
-L'appli s'installe sur le téléphone comme une application classique. Elle fonctionne hors ligne et synchronise vos quêtes entre vos deux téléphones par un dépôt GitHub privé.
+L'appli s'installe sur le téléphone comme une application classique. Elle fonctionne hors ligne et synchronise vos tâches entre vos deux téléphones par un dépôt GitHub privé.
 
 ## Ce qu'il y a dedans
 
