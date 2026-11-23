@@ -190,3 +190,9 @@ SEED_TASKS.push(
   { id: "e-baloo-bain", place: "terrasse", zone: "Terrasse", title: "Laver Baloo", kind: "entretien", duration: 30, urgency: 2, importance: 2, outdoor: true, everyDays: 7, lastDone: "2026-11-20" }
 );
 SEED_PATCHES.push({ key: "2026-11-23-balai-terrasse", id: "e-terrasse-balai", set: { lastDone: "2026-11-23" }, log: { who: "lui", date: "2026-11-23" } });
+
+/* Chambre 2, ajouts du 23/11/2026 */
+SEED_TASKS.push(
+  P("p-ch2-porte", "ch2", "Peindre la porte de la chambre 2", { duration: 180, materials: [{ name: "Peinture porte", cost: 25, have: false }] }),
+  P("p-ch2-tiroirs", "ch2", "Installer les tiroirs dans le meuble et le placard", { duration: 90, materials: [{ name: "Tiroirs IKEA (meuble et placard)", cost: 80, have: false }], notes: "Uniquement les tiroirs, à acheter chez IKEA." })
+);
