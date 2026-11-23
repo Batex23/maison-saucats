@@ -36,3 +36,12 @@ Le jeton reste uniquement dans le téléphone. Le code de l'appli est public, vo
 ## Mettre à jour
 
 Les fichiers sont statiques (`index.html`, `css/`, `js/`). Après une modification, change le numéro `CACHE` dans `sw.js` pour que les téléphones prennent la nouvelle version.
+
+## Parler à Baloo
+
+Le bouton « Parler à Baloo » ouvre la conversation avec Claude où l'appli est construite. On y dicte les nouvelles tâches ou les changements ; Claude les écrit dans `js/seed.js` :
+
+- une nouvelle tâche s'ajoute à `SEED_TASKS` et apparaît sur les téléphones au prochain lancement ;
+- une correction (tâche faite, nouveau prix, autre pièce…) s'ajoute à `SEED_PATCHES` avec une clé unique, et ne s'applique qu'une fois.
+
+Le lien se change dans l'onglet Nous si on repart d'une autre conversation.

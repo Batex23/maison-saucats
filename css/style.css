@@ -217,3 +217,7 @@ nav.tabs button[aria-current="page"]{color:var(--accent);background:var(--accent
 svg.house .p-terrasse_etage .top{fill:var(--wood);stroke:var(--wall-s)} svg.house .p-terrasse_etage .side-s,svg.house .p-terrasse_etage .side-e{fill:var(--wall-s)}
 svg.house .p-mare .top{fill:#8a7a5c} svg.house .p-terrasse_entree .top,svg.house .p-terrasse_entree .side-s,svg.house .p-terrasse_entree .side-e{fill:var(--wood)} svg.house .p-acces .top{fill:#cfc8b6} svg.house .p-acces .deco{stroke:#a9a18d}
 svg.house .room-lbl{cursor:pointer}
+.talk{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;padding:12px 14px;border-radius:14px;background:var(--accent);color:var(--accent-ink);text-decoration:none}
+.talk .portrait{background:rgba(255,255,255,.9);border-radius:10px;padding:4px;line-height:0}
+.talk .tt{display:flex;flex-direction:column;gap:2px;min-width:0} .talk .tt b{font-size:1.05rem} .talk .tt span{font-size:.85rem;opacity:.9}
+.talk .go{font-size:1.6rem;line-height:1}

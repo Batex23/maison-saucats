@@ -175,3 +175,7 @@ SEED_TASKS.push(
   P("p-sdb-rangement-choix", "sdb", "Choisir les rangements douche et bain (shampoing, gel douche…)", { project: "Salle de bain du haut", duration: 45, notes: "Étagère de douche, niche, panier suspendu ou meuble : à voir selon la place autour de la baignoire." }),
   P("p-sdb-rangement", "sdb", "Installer les rangements de la salle de bain", { project: "Salle de bain du haut", duration: 90, deps: ["p-sdb-rangement-choix", "p-joints"], materials: [{ name: "Rangements salle de bain", cost: 40, have: false }] })
 );
+
+/* Corrections dictées dans la conversation : chacune s'applique une seule fois sur chaque téléphone.
+   Exemple : { key: "2026-11-24-liege-fait", id: "t-liege", set: { status: "done" } } */
+const SEED_PATCHES = [];

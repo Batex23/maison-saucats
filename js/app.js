@@ -7,6 +7,8 @@ const STATE_LABEL = { ready: "Faisable", buy: "Il manque du matériel", blocked:
 const DAYS = ["dimanche", "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi"];
 const hasDay = t => t.weekday !== undefined && t.weekday !== null && t.weekday !== "";
 const rhythm = t => hasDay(t) ? "chaque " + DAYS[+t.weekday] + (t.evening ? " soir" : "") : (+t.everyDays === 1 ? "tous les jours" : "tous les " + (t.everyDays || 7) + " j");
+const TALK_URL_DEFAULT = "https://claude.ai/code/session_01PaT4dfmjKr2KoFCZipNkpg"; // la conversation avec Claude où Baptiste dicte les tâches
+const talkUrl = () => (S.data.settings.talkUrl || TALK_URL_DEFAULT);
 const ZONE_TO_PLACE = { Maison: "maison", Jardin: "jardin", Piscine: "piscine", Abri: "abri", Potager: "potager", Poulailler: "poulailler", Puits: "puits", "Garage / atelier": "abri" };
 
 /* ---------------- utilitaires ---------------- */
@@ -67,6 +69,13 @@ function migrate(d) {
     if (d.tasks["e-aspi"]) Object.assign(d.tasks["e-aspi"], { everyDays: 1, title: "Passer l'aspirateur", updatedAt: Date.now() });
     d.v = 5;
   }
+  // tâches dictées dans la conversation : ajoutées si absentes (une tâche supprimée dans l'appli reste supprimée)
+  SEED_TASKS.forEach(s => { if (!d.tasks[s.id]) d.tasks[s.id] = { deps: [], materials: [], status: "todo", notes: "", assignee: "", ...s, updatedAt: Date.now() }; });
+  d.applied = d.applied || {};
+  (typeof SEED_PATCHES !== "undefined" ? SEED_PATCHES : []).forEach(p => {
+    if (d.applied[p.key] || !d.tasks[p.id]) return;
+    Object.assign(d.tasks[p.id], p.set, { updatedAt: Date.now() }); d.applied[p.key] = 1;
+  });
   if (d.v < 6) {
     SEED_TASKS.forEach(s => { if (!d.tasks[s.id]) d.tasks[s.id] = { deps: [], materials: [], status: "todo", notes: "", assignee: "", ...s, updatedAt: Date.now() }; });
     d.v = 6;
@@ -301,7 +310,11 @@ function viewMaison() {
     <div class="chips">${chip("time", 15, "15 min")}${chip("time", 30, "30 min")}${chip("time", 60, "1 h")}${chip("time", 120, "2 h")}${chip("time", 240, "Demi-journée")}${chip("time", 420, "Journée")}</div>
     <div class="chips">${chip("where", "all", "Partout")}${chip("where", "in", "Dedans")}${chip("where", "out", "Dehors")}${chip("energy", "normal", "En forme")}${chip("energy", "tired", "Retour de garde")}${chip("energy", "off", "Jour de récup")}</div>
     ${plan.length ? plan.map(p => taskRow(p.t, { min: p.min, partial: p.partial })).join("") : `<div class="empty">Rien de faisable avec ces critères. Regarde les achats : c'est sûrement du matériel qui bloque.</div>`}
-    <div class="row"><button class="btn primary" data-act="wizard" style="flex:1">+ Nouvelle tâche</button><button class="btn" data-act="claude" style="flex:1">Demander à Claude</button></div>
+    <a class="talk" href="${esc(talkUrl())}" target="_blank" rel="noopener">
+      <span class="portrait">${mini("baloo", 2)}</span>
+      <span class="tt"><b>Parler à Baloo</b><span>Dicte une idée, une tâche, un changement : Claude met l'appli à jour.</span></span>
+      <span class="go">›</span></a>
+    <button class="linkbtn" data-act="new" style="align-self:flex-start">+ Ajouter une tâche à la main</button>
   </section>
   <section class="sec">
     <div class="seg" role="group" aria-label="Niveau">
@@ -321,7 +334,7 @@ function roomPanel(id) {
   const now = ts.filter(t => t._.state === "due" || t._.state === "ready"), buy = ts.filter(t => t._.state === "buy"),
     later = ts.filter(t => t._.state === "blocked" || t._.state === "wait"), ok = ts.filter(t => t._.state === "ok");
   return `<section class="card sec">
-    <div class="panel-head"><button class="linkbtn" data-act="rooms">‹ Toutes les pièces</button><button class="btn small primary" data-act="wizard" data-place="${id}">+ Ajouter ici</button></div>
+    <div class="panel-head"><button class="linkbtn" data-act="rooms">‹ Toutes les pièces</button><button class="btn small" data-act="new" data-place="${id}">+ Ajouter ici</button></div>
     <h2>${esc(PLACES[id].name)}</h2>
     ${ts.length ? g("À faire maintenant", now) + g("Il manque du matériel", buy) + g("Plus tard", later) + (ok.length ? `<div class="group-title">Entretien à jour</div>${ok.sort((a, b) => a._.dueIn - b._.dueIn).map(t => taskRow(t, { noPlace: true })).join("")}` : "")
       : `<div class="empty">Rien de prévu ici.</div>`}
@@ -345,7 +358,7 @@ function viewTaches() {
   const order = { due: 0, ready: 0, buy: 1, blocked: 2, wait: 3, ok: 4, done: 5 };
   const lvName = { ext: "Extérieur", etage: "Étage", rdc: "Rez-de-chaussée", all: "" };
   return `
-  <section class="sec"><div class="sec-head"><h2>Toutes les tâches</h2><button class="btn small primary" data-act="wizard">+ Tâche</button></div>
+  <section class="sec"><div class="sec-head"><h2>Toutes les tâches</h2><a class="btn small primary" href="${esc(talkUrl())}" target="_blank" rel="noopener" style="text-decoration:none">Parler à Baloo</a></div>
     <div class="chips">${filters.map(([k, l]) => `<button class="chip" data-filter="${k}" aria-pressed="${f === k}">${l}</button>`).join("")}</div></section>
   ${Object.keys(groups).length ? PLACE_ORDER.filter(k => groups[k]).map(k => `
     <section class="sec"><div class="sec-head"><h3>${esc(PLACES[k].name)}</h3><span class="hint">${lvName[PLACES[k].level]}</span></div>
@@ -414,7 +427,7 @@ function viewNous() {
   };
   return `
   <section class="sec"><h2>Nous</h2><div class="people">${card("lui")}${card("elodie")}</div>
-    <div class="card">${guideBox("Moi, c'est Baloo. Quand tu ajoutes une tâche, je te pose les questions : où, avec quoi, est-ce que tu l'as, ce qu'il faut finir avant…")}</div></section>
+    <div class="card">${guideBox(`Moi, c'est Baloo. Touche « Parler à Baloo » pour ouvrir la conversation avec Claude : raconte ce que tu as en tête, je pose les questions et l'appli se met à jour.`)}</div></section>
   <section class="card sec"><h2>Prénoms</h2>
     <div class="grid2"><div class="field"><label for="name-lui">Lui</label><input id="name-lui" type="text" value="${esc(st.players?.lui?.name || "Baptiste")}"></div>
       <div class="field"><label for="name-elodie">Elle</label><input id="name-elodie" type="text" value="${esc(st.players?.elodie?.name || "Elodie")}"></div></div>
@@ -430,6 +443,10 @@ function viewNous() {
     <div class="field"><label for="sy-token">Jeton GitHub (reste sur ce téléphone)</label><input id="sy-token" type="password" value="${esc(sy.token)}" autocomplete="off" placeholder="github_pat_…"></div>
     <div class="row"><button class="btn small primary" data-act="sync-save">Connecter</button><button class="btn small" data-act="sync-now">Synchroniser</button></div>
     <div class="muted" style="font-size:.88rem;display:flex;gap:6px;align-items:center"><span class="dot ${S.sync.state === "ok" ? "ok" : S.sync.state === "err" ? "err" : ""}"></span>${esc(S.sync.msg)}</div></section>
+  <section class="card sec"><h2>Lien de Baloo</h2>
+    <p class="muted" style="margin:0;font-size:.9rem">La conversation qui s'ouvre quand on touche « Parler à Baloo ». À changer seulement si on repart d'une nouvelle conversation.</p>
+    <div class="field"><label for="talk-url">Lien</label><input id="talk-url" type="url" value="${esc(talkUrl())}" autocapitalize="off"></div>
+    <button class="btn small" data-act="save-talk" style="align-self:flex-start">Enregistrer</button></section>
   <section class="card sec"><h2>Rappels</h2>
     <p class="muted" style="margin:0;font-size:.9rem">Les tâches à jour fixe (poubelles…) s'affichent en tête d'« Aujourd'hui » le bon jour. Pour être prévenu même appli fermée, ajoute-les à ton agenda : le téléphone sonnera chaque semaine.</p>
     <div class="row"><button class="btn small primary" data-act="ics">Ajouter à mon agenda</button>${"Notification" in window && Notification.permission !== "granted" ? `<button class="btn small" data-act="notif">Notifications dans l'appli</button>` : ""}</div></section>
@@ -466,8 +483,8 @@ function placeSelect(id, v) {
 }
 
 /* ---------- édition complète d'une tâche ---------- */
-function openEditor(id) {
-  const t = id ? S.data.tasks[id] : { title: "", kind: "projet", place: "maison", project: "", duration: 60, urgency: 2, importance: 2, deps: [], materials: [], status: "todo", everyDays: 7, lastDone: todayISO(), waitUntil: "", notes: "", assignee: "" };
+function openEditor(id, presetPlace) {
+  const t = id ? S.data.tasks[id] : { title: "", kind: "projet", place: presetPlace || "maison", project: "", duration: 60, urgency: 2, importance: 2, deps: [], materials: [], status: "todo", everyDays: 7, lastDone: todayISO(), waitUntil: "", notes: "", assignee: "" };
   const projects = [...new Set(tasksList().map(x => x.project).filter(Boolean))];
   const others = tasksList().filter(x => x.id !== id && x.kind !== "entretien" && x.status !== "done");
   const mats = (t.materials || []).map(m => ({ ...m }));
@@ -737,7 +754,7 @@ const b64dec = c => new TextDecoder().decode(Uint8Array.from(atob(c.replace(/\s/
 const canon = o => JSON.stringify(o, (k, v) => k === "_" ? undefined : (v && typeof v === "object" && !Array.isArray(v) ? Object.keys(v).sort().reduce((r, x) => (r[x] = v[x], r), {}) : v));
 function mergeData(a, b) {
   if (!b) return a;
-  const out = { v: Math.max(a.v || 1, b.v || 1), tasks: {}, log: { ...(b.log || {}), ...(a.log || {}) }, settings: null };
+  const out = { v: Math.max(a.v || 1, b.v || 1), tasks: {}, log: { ...(b.log || {}), ...(a.log || {}) }, applied: { ...(b.applied || {}), ...(a.applied || {}) }, settings: null };
   new Set([...Object.keys(a.tasks || {}), ...Object.keys(b.tasks || {})]).forEach(id => { const x = a.tasks?.[id], y = b.tasks?.[id]; out.tasks[id] = !x ? y : !y ? x : ((y.updatedAt || 0) > (x.updatedAt || 0) ? y : x); });
   out.settings = ((b.settings?.updatedAt || 0) > (a.settings?.updatedAt || 0)) ? b.settings : a.settings;
   return out;
@@ -833,12 +850,12 @@ document.addEventListener("click", e => {
   if (act === "close") closeSheet();
   else if (act === "edit") openEditor(a.dataset.id);
   else if (act === "done") { closeSheet(); completeTask(a.dataset.id); }
-  else if (act === "wizard") { closeSheet(); openWizard(a.dataset.place || ""); }
-  else if (act === "claude") openClaude();
+  else if (act === "new") { closeSheet(); openEditor(null, a.dataset.place || ""); }
   else if (act === "rooms") { S.room = null; render(); }
   else if (act === "me") { S.dev.me = a.dataset.v; saveDev(); closeSheet(); render(); }
   else if (act === "unbuy") setBought(a.dataset.key, false);
   else if (act === "save-names") { S.data.settings = { ...S.data.settings, players: { lui: { name: $("#name-lui").value.trim() || "Baptiste" }, elodie: { name: $("#name-elodie").value.trim() || "Elodie" } }, updatedAt: Date.now() }; commit("Prénoms enregistrés"); }
+  else if (act === "save-talk") { const u = $("#talk-url").value.trim(); if (u && !/^https:\/\/claude\.ai\//.test(u)) return toast("Le lien doit commencer par https://claude.ai/"); S.data.settings = { ...S.data.settings, talkUrl: u, updatedAt: Date.now() }; commit("Lien enregistré"); }
   else if (act === "save-guide") { S.data.settings = { ...S.data.settings, guide: $("#guide-txt").value.trim(), updatedAt: Date.now() }; commit("Consignes enregistrées"); }
   else if (act === "sync-save") { S.dev.sync = { ...S.dev.sync, owner: $("#sy-owner").value.trim(), repo: $("#sy-repo").value.trim(), token: $("#sy-token").value.trim() }; saveDev(); doSync(); }
   else if (act === "sync-now") doSync();
