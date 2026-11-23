@@ -214,3 +214,4 @@ nav.tabs button[aria-current="page"]{color:var(--accent);background:var(--accent
 @media (max-width:360px){.grid3{grid-template-columns:1fr 1fr}.choices{grid-template-columns:1fr}.mat{grid-template-columns:1fr 60px;}}
 .rooms-empty{font-size:.86rem;color:var(--muted);padding:10px 2px 2px;line-height:1.5}
 .rooms-empty button{background:none;border:0;padding:0;color:var(--muted);text-decoration:underline;text-underline-offset:2px;font-size:inherit}
+svg.house .p-terrasse_etage .top{fill:var(--wood);stroke:var(--wall-s)} svg.house .p-terrasse_etage .side-s,svg.house .p-terrasse_etage .side-e{fill:var(--wall-s)}

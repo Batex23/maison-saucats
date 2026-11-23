@@ -1,6 +1,6 @@
 /* Quêtes de départ (estimations à corriger dans l'appli). updatedAt = 0 : les données synchronisées passent toujours devant. */
 const SEED_TASKS = [
-  { id: "t-liege", place: "maison", title: "Coller le liège", kind: "reparation", zone: "Maison", project: "Intérieur", duration: 30, urgency: 2, importance: 2, outdoor: false, deps: [], materials: [{ name: "Colle pour liège", cost: 15, have: false }], status: "todo" },
+  { id: "t-liege", place: "wc_rdc", title: "WC : découper et coller le liège", kind: "reparation", zone: "WC du bas", project: "WC du bas", duration: 90, urgency: 2, importance: 2, outdoor: false, deps: [], materials: [{ name: "Colle pour liège", cost: 15, have: false }], status: "todo" },
   { id: "t-abri", place: "abri", title: "Terminer la structure de l'abri", kind: "projet", zone: "Abri", project: "Abri de jardin", duration: 240, urgency: 2, importance: 3, outdoor: true, deps: [], materials: [{ name: "Bois de structure", cost: 200, have: false }], status: "doing", notes: "Le bois sert aussi à d'autres projets : regrouper les achats." },
   { id: "t-abri-toit", place: "abri", title: "Couvrir le toit de l'abri", kind: "projet", zone: "Abri", project: "Abri de jardin", duration: 180, urgency: 2, importance: 3, outdoor: true, deps: ["t-abri"], materials: [{ name: "Couverture de toit", cost: 150, have: false }], status: "todo" },
   { id: "t-terrasse", place: "abri", title: "Poser la terrasse en dalles travertin", kind: "projet", zone: "Abri", project: "Coin douche exotique", duration: 360, urgency: 1, importance: 2, outdoor: true, deps: ["t-abri"], materials: [{ name: "Dalles style travertin gris", cost: 300, have: false }, { name: "Sable de pose", cost: 40, have: false }], status: "todo" },
@@ -25,3 +25,83 @@ const SEED_TASKS = [
   { id: "e-puits", place: "puits", title: "Vérifier la pompe du puits", kind: "entretien", zone: "Puits", duration: 15, urgency: 1, importance: 2, outdoor: true, everyDays: 90, lastDone: "2026-10-01" },
   { id: "e-gouttieres", place: "facades", title: "Vider les gouttières", kind: "entretien", zone: "Maison", duration: 60, urgency: 1, importance: 2, outdoor: true, everyDays: 180, lastDone: "2026-06-01" }
 ];
+
+/* Projets du moment, dictés par Baptiste le 23/11/2026. Durées et prix : estimations à corriger. */
+const ECH = { name: "Échelle / échafaudage roulant", cost: 150, have: false };
+const PB = { name: "Peinture blanche murs", cost: 35, have: false };
+const ENDUIT = { name: "Enduit de rebouchage", cost: 12, have: false };
+const P = (id, place, title, o = {}) => ({ id, place, title, kind: "projet", duration: 60, urgency: 2, importance: 2, outdoor: false, deps: [], materials: [], status: "todo", ...o });
+SEED_TASKS.push(
+  // Cuisine : la cafetière
+  P("p-cafe-bois", "cuisine", "Cafetière : poser le bois autour", { project: "Cafetière", duration: 120, status: "doing" }),
+  P("p-cafe-orne", "cuisine", "Cafetière : finir l'ornement", { project: "Cafetière", duration: 120, status: "doing" }),
+  P("p-cafe-soud", "cuisine", "Cafetière : souder les composants", { project: "Cafetière", duration: 90 }),
+  P("p-cafe-remont", "cuisine", "Cafetière : réassembler les derniers morceaux", { project: "Cafetière", duration: 60, deps: ["p-cafe-bois", "p-cafe-orne", "p-cafe-soud"], importance: 3 }),
+  P("p-cafe-affiche", "cuisine", "Affiche « mode d'emploi du café » à imprimer", { project: "Cafetière", duration: 90, urgency: 1, materials: [{ name: "Impression de l'affiche", cost: 15, have: false }], notes: "Notice design pour expliquer la mise en route du café." }),
+  // Séjour
+  P("p-poutre", "sejour", "Peindre la poutre (partie haute)", { duration: 180, materials: [ECH, { name: "Peinture poutre", cost: 30, have: false }] }),
+  P("p-mur-choix", "sejour", "Choisir l'habillage du grand mur (mur végétal ?)", { project: "Grand mur du séjour", duration: 60, notes: "Idée : mur végétal. À challenger : eau et humidité sur une maison bois, lumière, entretien en hauteur. Pistes : végétal stabilisé (sans eau ni lumière), tasseaux bois + plantes suspendues, peinture ou fresque." }),
+  P("p-mur", "sejour", "Réaliser l'habillage du grand mur", { project: "Grand mur du séjour", duration: 960, urgency: 1, deps: ["p-mur-choix"] }),
+  P("p-lum-sejour", "sejour", "Installer les luminaires du séjour", { duration: 120, materials: [ECH] }),
+  P("p-caches", "sejour", "Poser des caches lumière sur les vitres hautes", { duration: 120, materials: [ECH, { name: "Caches / films pour vitres hautes", cost: 60, have: false }] }),
+  P("p-vitres-hautes", "sejour", "Nettoyer les vitres hautes", { duration: 90, materials: [ECH] }),
+  P("p-ramb-chercher", "sejour", "Aller chercher la nouvelle rambarde", { project: "Sécuriser l'escalier", duration: 120, urgency: 3, importance: 3 }),
+  P("p-ramb-depose", "sejour", "Déposer la rambarde murale existante", { project: "Sécuriser l'escalier", duration: 60, urgency: 3, importance: 3 }),
+  P("p-ramb-mur", "sejour", "Escalier : reprendre le mur et les fixations (enduits)", { project: "Sécuriser l'escalier", duration: 240, urgency: 3, importance: 3, deps: ["p-ramb-depose"], materials: [ENDUIT, { name: "Chevilles et fixations rambarde", cost: 25, have: false }] }),
+  P("p-ramb-peint", "sejour", "Escalier : repeindre le mur", { project: "Sécuriser l'escalier", duration: 180, urgency: 2, importance: 2, deps: ["p-ramb-mur"], materials: [PB] }),
+  P("p-ramb-pose", "sejour", "Poser la nouvelle rambarde", { project: "Sécuriser l'escalier", duration: 240, urgency: 3, importance: 3, deps: ["p-ramb-chercher", "p-ramb-mur"] }),
+  P("p-baie", "sejour", "Refaire la peinture au-dessus de la baie vitrée (craquelures)", { duration: 240, materials: [ENDUIT, PB] }),
+  P("p-eclab", "sejour", "Retoucher les éclaboussures de peinture", { duration: 60, urgency: 1, materials: [PB] }),
+  P("p-chem-trous", "sejour", "Reboucher les trous au-dessus de la cheminée (retirer le scotch)", { duration: 45, materials: [ENDUIT, PB] }),
+  P("p-kallax", "sejour", "Ranger et remettre au propre l'étagère Kallax", { duration: 90 }),
+  P("p-n64", "sejour", "Remettre au propre le coin Nintendo 64", { duration: 30, urgency: 1, importance: 1 }),
+  // Entrée
+  P("p-coussin", "entree", "Récupérer le coussin de l'entrée chez ma mère", { duration: 30, urgency: 1, notes: "En cours d'aménagement chez ma mère." }),
+  P("p-miroir", "entree", "Poser un miroir dans l'entrée", { duration: 45, urgency: 1, materials: [{ name: "Miroir d'entrée", cost: 60, have: false }] }),
+  P("p-entree-peint", "entree", "Nettoyer les taches et retoucher le blanc de l'entrée", { duration: 60, materials: [PB] }),
+  P("p-butoir", "entree", "Poser un butoir de porte (la porte abîme le mur)", { kind: "reparation", duration: 15, urgency: 3, materials: [{ name: "Butoir de porte", cost: 10, have: false }] }),
+  P("p-porte-entree", "entree", "Régler le bas de la porte d'entrée (joint qui frotte)", { kind: "reparation", duration: 90, status: "doing" }),
+  // Buanderie / cellier
+  P("p-cel-etag", "buanderie", "Installer les étagères du cellier", { project: "Cellier", duration: 120, materials: [{ name: "Étagères cellier", cost: 100, have: false }] }),
+  P("p-cel-linge", "buanderie", "Réorganiser le coin linge", { project: "Cellier", duration: 60 }),
+  P("p-cel-etendoir", "buanderie", "Installer un étendoir intérieur", { project: "Cellier", duration: 60, materials: [{ name: "Étendoir intérieur", cost: 40, have: false }] }),
+  P("p-cel-sacs", "buanderie", "Créer un rangement pour les sacs", { project: "Cellier", duration: 90, urgency: 1 }),
+  P("p-cel-haut", "buanderie", "Rangements au-dessus du congélateur", { project: "Cellier", duration: 180, urgency: 1, materials: [{ name: "Planches et tasseaux", cost: 40, have: false }] }),
+  // Chambre 1
+  P("p-ch1-nuages", "ch1", "Peindre les nuages", { project: "Chambre 1", duration: 240, importance: 3 }),
+  P("p-ch1-arche", "ch1", "Peindre l'arche", { project: "Chambre 1", duration: 180, importance: 3 }),
+  P("p-ch1-appliques", "ch1", "Installer les appliques murales", { project: "Chambre 1", duration: 90 }),
+  P("p-ch1-etag", "ch1", "Installer les petites étagères", { project: "Chambre 1", duration: 60 }),
+  // WC du bas
+  P("p-wc-lessive", "wc_rdc", "Lessiver les murs du WC", { project: "WC du bas", duration: 45, materials: [{ name: "Lessive pour murs", cost: 8, have: false }], notes: "Avant le liège et la déco." }),
+  P("p-wc-porte", "wc_rdc", "Repeindre la porte du WC du bas", { project: "WC du bas", duration: 180, materials: [{ name: "Peinture porte", cost: 25, have: false }] }),
+  // Chambre 2 (bureau, chambre d'amis)
+  P("p-ch2-lum", "ch2", "Installer les luminaires de la chambre 2", { duration: 90 }),
+  P("p-ch2-armoire", "ch2", "Réorganiser l'armoire", { duration: 60 }),
+  P("p-ch2-chaise", "ch2", "Chaise de bureau (le sol se marque)", { duration: 15, materials: [{ name: "Chaise de bureau ou patins", cost: 60, have: false }] }),
+  P("p-ch2-lit", "ch2", "Idée : lit escamotable", { duration: 960, urgency: 1, importance: 1, notes: "Pas prioritaire : relever le lit suffit pour l'instant." }),
+  // Salle d'eau du bas
+  P("p-sde-bac", "sde", "Installer un bac pour laver bébé", { duration: 60, waitUntil: "", materials: [{ name: "Bac de bain bébé", cost: 30, have: false }], notes: "Avant la naissance (février 2027)." }),
+  // Couloir
+  P("p-couloir", "couloir", "Reboucher et poncer les encadrements de portes", { duration: 120, materials: [ENDUIT] }),
+  // Étage : coursive
+  P("p-biblio-plan", "palier", "Concevoir la bibliothèque (piano, instruments, livres)", { project: "Bibliothèque de la coursive", duration: 180, importance: 3 }),
+  P("p-biblio", "palier", "Construire la bibliothèque", { project: "Bibliothèque de la coursive", duration: 1440, deps: ["p-biblio-plan"], materials: [{ name: "Bois bibliothèque", cost: 300, have: false }] }),
+  P("p-livres", "palier", "Ranger les livres et les instruments", { project: "Bibliothèque de la coursive", duration: 180, deps: ["p-biblio"] }),
+  // Étage : suite
+  P("p-coiffeuse", "suite", "Désencombrer et organiser le coin coiffeuse", { duration: 120 }),
+  P("p-niches", "suite", "Habiller les niches de la penderie (bois type chêne)", { duration: 480, urgency: 1, importance: 1, materials: [{ name: "Habillage niches chêne", cost: 250, have: false }], notes: "Solutions trouvées trop chères : chercher moins cher. La 1re niche est purement déco." }),
+  P("p-porte-suite", "suite", "Finir la peinture terracotta de la porte", { duration: 90, status: "doing" }),
+  // Étage : salle de bain
+  P("p-bain-fix", "sdb", "Fixer et régler la baignoire (partie haute)", { kind: "reparation", duration: 120, urgency: 3 }),
+  P("p-joints", "sdb", "Refaire les joints baignoire et lavabos", { kind: "reparation", duration: 120, deps: ["p-bain-fix"], materials: [{ name: "Mastic sanitaire", cost: 15, have: false }] }),
+  P("p-coffres-choix", "sdb", "Choisir la peinture des coffres de volets", { duration: 30, urgency: 1 }),
+  P("p-coffres", "sdb", "Peindre les coffres de volets", { duration: 120, urgency: 1, deps: ["p-coffres-choix"] }),
+  P("p-sdb-lum", "sdb", "Installer une lumière au-dessus des portants", { duration: 90 }),
+  // Étage : terrasse du haut
+  P("p-gc-etude", "terrasse_etage", "Étudier le garde-corps de la terrasse du haut", { project: "Terrasse du haut", duration: 120, urgency: 3, importance: 3, outdoor: true, notes: "Aujourd'hui il n'y en a pas du tout." }),
+  P("p-gc", "terrasse_etage", "Poser le garde-corps tout autour", { project: "Terrasse du haut", duration: 960, urgency: 3, importance: 3, outdoor: true, deps: ["p-gc-etude"], materials: [{ name: "Garde-corps terrasse", cost: 0, have: false }], notes: "Chiffrer après l'étude." }),
+  P("p-sauna-plan", "terrasse_etage", "Concevoir le local sauna (rangement en attendant)", { project: "Terrasse du haut", duration: 180, urgency: 1, outdoor: true, notes: "Prévoir dès le départ ce qu'il faut pour un sauna : isolation, électricité, ventilation." }),
+  P("p-sauna", "terrasse_etage", "Construire le local", { project: "Terrasse du haut", duration: 1920, urgency: 1, outdoor: true, deps: ["p-sauna-plan", "p-gc"] })
+);
+SEED_TASKS.forEach(t => { if (!t.zone) t.zone = t.place; });

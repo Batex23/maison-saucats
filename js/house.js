@@ -6,7 +6,7 @@ const R = (x, y, w, h) => [[x, y], [x + w, y], [x + w, y + h], [x, y + h]];
 const PLACES = {
   // Rez-de-chaussée
   entree:    { name: "Entrée", short: "Entrée", level: "rdc", poly: R(2.7, 0, 1.7, 1.8) },
-  buanderie: { name: "Buanderie", short: "Buand.", level: "rdc", poly: R(0, 0, 2.7, 1.8) },
+  buanderie: { name: "Buanderie / cellier", short: "Cellier", level: "rdc", poly: R(0, 0, 2.7, 1.8) },
   ch2:       { name: "Chambre 2", short: "Ch. 2", level: "rdc", poly: R(0, 1.8, 2.6, 2.9) },
   couloir:   { name: "Couloir", short: "Couloir", level: "rdc", poly: [[2.6, 1.8], [4.4, 1.8], [4.4, 6.5], [1.2, 6.5], [1.2, 4.7], [2.6, 4.7]] },
   wc_rdc:    { name: "WC du bas", short: "WC", level: "rdc", poly: R(0, 4.7, 1.2, 1.8) },
@@ -18,7 +18,8 @@ const PLACES = {
   wc_etage:  { name: "WC du haut", short: "WC", level: "etage", poly: R(0, 0, 1.1, 1.5) },
   sdb:       { name: "Salle de bain", short: "Salle de bain", level: "etage", poly: [[1.1, 0], [5.2, 0], [5.2, 2.8], [0, 2.8], [0, 1.5], [1.1, 1.5]] },
   suite:     { name: "Suite parentale", short: "Suite", level: "etage", poly: R(0, 2.8, 5.2, 4.2) },
-  palier:    { name: "Palier", short: "Palier", level: "etage", poly: R(5.2, 0, 1.2, 5.3) },
+  palier:    { name: "Coursive", short: "Coursive", level: "etage", poly: R(5.2, 0, 1.2, 5.3) },
+  terrasse_etage: { name: "Terrasse du haut (sport)", short: "Terrasse", level: "etage", out: true, poly: R(0, 7, 4.4, 2.5) },
   // Toute la maison (tâches qui concernent plusieurs pièces)
   maison:    { name: "Toute la maison", short: "Partout", level: "all" },
   // Extérieur
@@ -35,7 +36,7 @@ const VOIDS = {
   etage: [{ label: "Vide sur séjour", poly: R(6.4, 0, 5.0, 5.3) }]
 };
 const LEVEL_LABEL = { rdc: "Rez-de-chaussée", etage: "Étage", ext: "Extérieur" };
-const PLACE_ORDER = ["maison", "entree", "sejour", "cuisine", "couloir", "ch1", "ch2", "sde", "wc_rdc", "buanderie", "palier", "suite", "sdb", "wc_etage",
+const PLACE_ORDER = ["maison", "entree", "sejour", "cuisine", "couloir", "ch1", "ch2", "sde", "wc_rdc", "buanderie", "palier", "suite", "sdb", "wc_etage", "terrasse_etage",
   "terrasse", "facades", "jardin", "piscine", "abri", "potager", "poulailler", "puits"];
 
 /* ---------- projection ---------- */
@@ -83,7 +84,7 @@ function houseSVG(level, info, selected) {
   let svg = `<svg class="house" data-level="${level}" viewBox="${vb.map(v => v.toFixed(0)).join(" ")}" role="group" aria-label="${LEVEL_LABEL[level]} : touche une pièce">`;
   // dalle du niveau
   if (level !== "ext") {
-    const outer = level === "rdc" ? [[0, 0], [13.7, 0], [13.7, 4.5], [4.4, 4.5], [4.4, 9.5], [0, 9.5]] : [[0, 0], [11.4, 0], [11.4, 5.3], [5.2, 5.3], [5.2, 7], [0, 7]];
+    const outer = level === "rdc" ? [[0, 0], [13.7, 0], [13.7, 4.5], [4.4, 4.5], [4.4, 9.5], [0, 9.5]] : [[0, 0], [11.4, 0], [11.4, 5.3], [5.2, 5.3], [5.2, 9.5], [0, 9.5]];
     const pr = prism(outer, 0.18);
     pr.faces.forEach(f => svg += `<polygon class="slab-${f.side}" points="${ptsStr(f.pts)}"/>`);
     svg += `<polygon class="slab-top" points="${ptsStr(pr.top)}"/>`;
